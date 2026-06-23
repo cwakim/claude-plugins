@@ -7,5 +7,12 @@
     "metadata": {
         "description": "Personal Claude Code plugins by Charbel Wakim"
     },
-    "plugins": []
+    "plugins": [
+        {
+            "name": "session-continuity",
+            "source": "./plugins/session-continuity",
+            "description": "Save a portable, human-readable snapshot of a conversation (/handoff) and pick it back up later (/resume).",
+            "version": "0.1.0"
+        }
+    ]
 }
