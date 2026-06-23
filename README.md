@@ -13,7 +13,7 @@ A small personal marketplace of [Claude Code](https://claude.com/claude-code) pl
 
 | Plugin | What it does |
 |--------|--------------|
-| _(coming soon)_ | |
+| [session-continuity](plugins/session-continuity) | `/handoff` saves a portable snapshot of a conversation; `/pickup` picks it back up. A baton pass, not a context restore. |
 
 ---
 
