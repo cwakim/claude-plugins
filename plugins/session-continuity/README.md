@@ -26,7 +26,7 @@ It is a baton pass, not a context restore.
 /pickup ~/Desktop/that-chat.md   # pick up from a specific file
 ```
 
-`/handoff` never clobbers an existing snapshot (it prepends, newest first), and warns before writing an un-ignored file inside a git repo. `/pickup` verifies the snapshot against `git status` before acting on it.
+`/handoff` never clobbers an existing snapshot (it prepends, newest first), and warns before writing an un-ignored file inside a git repo. `/pickup` verifies the snapshot before acting on it — against `git status` for a work snapshot, or against the resources it references for an idea capture.
 
 ## Install
 

@@ -63,7 +63,9 @@ Questions left unresolved, things to explore next.
 
 ## Step 2 — Preserve history (never clobber)
 
-If the destination file already exists, do **not** overwrite it. Read it first, then write the **new** snapshot at the top, followed by a `\n---\n` divider, followed by the existing content verbatim. Newest snapshot is always first. If the file has grown long with many old snapshots you may trim the oldest, but never drop the immediately preceding one.
+If the destination file already exists, do **not** overwrite it. Read it first, then write the **new** snapshot at the top, separated from the existing content by a single blank line, followed by that existing content verbatim. Newest snapshot is always first. If the file has grown long with many old snapshots you may trim the oldest, but never drop the immediately preceding one.
+
+Each snapshot is delimited by its own dated top-level heading (`# Handoff — YYYY-MM-DD` or `# Conversation snapshot — YYYY-MM-DD`), which is what `/pickup` splits on. Do **not** use a `---` rule as the separator: a snapshot body can legitimately contain one, which would split it mid-snapshot. The heading is the boundary.
 
 ## Step 3 — Gitignore awareness
 
@@ -74,10 +76,10 @@ If the destination is inside a git repository and the file is **not** gitignored
 So a fresh session in any directory can find this handoff, prepend one line to `~/.claude/handoff-index.md` (create the file and `~/.claude/` if needed):
 
 ```text
-- YYYY-MM-DD HH:MM — <absolute path of the snapshot just written>
+- YYYY-MM-DD HH:MM — <absolute path> — <work|ideas> — <one-line goal or title>
 ```
 
-Newest entry first. This is an append-only index of pointers, not a copy of the snapshot — never write snapshot content here. `/pickup` reads it to locate the latest handoff when the current repo has none. If the same path already appears, move it to the top with the new timestamp rather than duplicating it.
+The template tag (`work` or `ideas`) and the goal let `/pickup` choose the right snapshot and pick the right verification without opening each file. Newest entry first. This is an append-only index of pointers, not a copy of the snapshot — never write snapshot content here. `/pickup` reads it to locate the latest handoff when the current repo has none. If the same path already appears, move it to the top with the new timestamp rather than duplicating it.
 
 ## Step 5 — Confirm
 

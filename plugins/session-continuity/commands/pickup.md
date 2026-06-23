@@ -18,21 +18,21 @@ This is the other half of `/handoff`: a baton pass, not a session restore. It de
 A handoff does not always live in the current repo — it may have been written from a sibling repo, the Desktop, or elsewhere. Walk this order and stop at the first hit:
 
 1. `.claude/handoff.md` in the current working directory.
-2. The most recent entry in `~/.claude/handoff-index.md` (the pointer index `/handoff` maintains). Read the index, take the newest path, and confirm it still exists.
+2. The newest live entry in `~/.claude/handoff-index.md` (the pointer index `/handoff` maintains). Read the index and walk it top-down to the first path that still exists — entries can point at handoffs that were since deleted, so do not dead-end on a stale newest entry. Mention any dead entries you skipped (they can be pruned).
 3. If neither resolves, say so and ask where the handoff lives.
 
 If the resolved handoff lives **outside** the current working directory, say so explicitly and name its absolute path before acting on it — so a stale or wrong-repo pickup is obvious rather than silent.
 
 ## Step 1 — Read the most recent snapshot
 
-The file may hold several snapshots separated by `---`, newest first. Read the **top** one as the active state. Note that older snapshots exist, but do not act on them unless asked.
+The file may hold several snapshots, newest first, each delimited by its own dated top-level heading (`# Handoff — …` or `# Conversation snapshot — …`). Split on those headings — not on `---`, since a snapshot body can contain a horizontal rule. Read the **top** one as the active state. Note that older snapshots exist, but do not act on them unless asked.
 
 ## Step 2 — Verify before acting
 
-A handoff is a point-in-time summary and may have drifted from reality since it was written. Before doing anything, cross-check its claims against ground truth:
+A handoff is a point-in-time summary and may have drifted from reality since it was written. Verify against ground truth before acting, but match the verification to what the snapshot is:
 
-- Run `git status` and `git log` to confirm the branch and recent commits match what the snapshot describes.
-- Spot-check that the files it names still exist and look as described.
+- **Work snapshot in a git repo** (`# Handoff — …`): run `git status` and `git log` to confirm the branch and recent commits match what it describes, and spot-check that the files it names still exist and look as described.
+- **Idea capture** (`# Conversation snapshot — …`), or any snapshot written outside a repo: there is no branch to check. Instead spot-check that any files, URLs, or resources it references still exist, and confirm the framing still holds before continuing.
 
 If anything has diverged, flag it to the user instead of trusting the snapshot blindly.
 
