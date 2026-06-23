@@ -3,7 +3,7 @@
 Two commands for carrying a conversation across the gap between sessions, machines, or people.
 
 - **`/handoff`** — distill the current conversation into a compact, human-readable markdown snapshot and save it to a file.
-- **`/resume`** — read a snapshot back and continue from it, after checking it still matches reality.
+- **`/pickup`** — read a snapshot back and continue from it, after checking it still matches reality.
 
 ## Why not just resume the session?
 
@@ -22,11 +22,11 @@ It is a baton pass, not a context restore.
 /handoff                         # work snapshot → .claude/handoff.md in this repo
 /handoff ~/Desktop/that-chat.md  # write somewhere else
 /handoff ideas                   # capture an idea/discussion instead of task state
-/resume                          # read .claude/handoff.md and continue
-/resume ~/Desktop/that-chat.md   # resume from a specific file
+/pickup                          # read .claude/handoff.md and continue
+/pickup ~/Desktop/that-chat.md   # pick up from a specific file
 ```
 
-`/handoff` never clobbers an existing snapshot (it prepends, newest first), and warns before writing an un-ignored file inside a git repo. `/resume` verifies the snapshot against `git status` before acting on it.
+`/handoff` never clobbers an existing snapshot (it prepends, newest first), and warns before writing an un-ignored file inside a git repo. `/pickup` verifies the snapshot against `git status` before acting on it.
 
 ## Install
 

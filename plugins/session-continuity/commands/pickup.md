@@ -1,10 +1,12 @@
 ---
-description: Resume from a handoff snapshot — read a saved conversation state and continue from it, verifying against current ground truth before acting.
+description: Pick up from a handoff snapshot — read a saved conversation state and continue from it, verifying against current ground truth before acting.
 ---
 
-# Resume
+# Pickup
 
 Read a handoff snapshot written by `/handoff` and continue the work (or the conversation) from it.
+
+This is the other half of `/handoff`: a baton pass, not a session restore. It deliberately reads a distilled summary rather than replaying a transcript. (Named `pickup`, not `resume`, to avoid colliding with Claude Code's built-in `/resume`.)
 
 ## Arguments (`$ARGUMENTS`)
 
