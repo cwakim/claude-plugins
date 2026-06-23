@@ -1,0 +1,11 @@
+{
+    "name": "claude-plugins",
+    "owner": {
+        "name": "Charbel Wakim",
+        "email": "me@charbelwakim.com"
+    },
+    "metadata": {
+        "description": "Personal Claude Code plugins by Charbel Wakim"
+    },
+    "plugins": []
+}
