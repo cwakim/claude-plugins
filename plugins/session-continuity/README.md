@@ -32,5 +32,5 @@ It is a baton pass, not a context restore.
 
 ```text
 /plugin marketplace add cwakim/claude-plugins
-/plugin install session-continuity
+/plugin install session-continuity@cwakim-plugins
 ```

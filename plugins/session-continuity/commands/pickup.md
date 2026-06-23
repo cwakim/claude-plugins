@@ -11,8 +11,17 @@ This is the other half of `/handoff`: a baton pass, not a session restore. It de
 ## Arguments (`$ARGUMENTS`)
 
 - **A path** → read that file. Expand a leading `~`.
-- No argument → read `.claude/handoff.md` in the current working directory.
-- If the file does not exist, say so and ask where the handoff lives.
+- No argument → find the handoff via the discovery order below.
+
+### Discovery order (no argument given)
+
+A handoff does not always live in the current repo — it may have been written from a sibling repo, the Desktop, or elsewhere. Walk this order and stop at the first hit:
+
+1. `.claude/handoff.md` in the current working directory.
+2. The most recent entry in `~/.claude/handoff-index.md` (the pointer index `/handoff` maintains). Read the index, take the newest path, and confirm it still exists.
+3. If neither resolves, say so and ask where the handoff lives.
+
+If the resolved handoff lives **outside** the current working directory, say so explicitly and name its absolute path before acting on it — so a stale or wrong-repo pickup is obvious rather than silent.
 
 ## Step 1 — Read the most recent snapshot
 

@@ -41,6 +41,8 @@ The immediate next step, or the exact thing we are stuck on. Be specific.
 Workflow rules, preferences, and gotchas that must stay in effect.
 ```
 
+If the session covered **several parallel threads** (e.g. different repos or unrelated tasks), repeat `## Goal` / `## Done` / `## Next` per thread under a `### <thread name>` heading rather than flattening them into one list. Date any fact whose freshness matters (`as of YYYY-MM-DD`), and flag anything you suspect has since drifted with a short `STALE?` note — a picker-up trusts a dated, hedged fact more than a confident stale one.
+
 **Idea-capture template** (`ideas`, for a conversation worth keeping):
 
 ```markdown
@@ -67,6 +69,16 @@ If the destination file already exists, do **not** overwrite it. Read it first, 
 
 If the destination is inside a git repository and the file is **not** gitignored, the snapshot will be committed with the project. Unless the user clearly wants that, warn them and offer to add the path to `.gitignore`. A snapshot written outside any repo (e.g. on the Desktop) needs no such check.
 
-## Step 4 — Confirm
+## Step 4 — Leave a pointer (discoverability)
 
-Report: the absolute path written, which template was used, and whether a prior snapshot was preserved. Keep it human-readable. A contributor with zero context should be able to read it and know what is going on and what to do next.
+So a fresh session in any directory can find this handoff, prepend one line to `~/.claude/handoff-index.md` (create the file and `~/.claude/` if needed):
+
+```text
+- YYYY-MM-DD HH:MM — <absolute path of the snapshot just written>
+```
+
+Newest entry first. This is an append-only index of pointers, not a copy of the snapshot — never write snapshot content here. `/pickup` reads it to locate the latest handoff when the current repo has none. If the same path already appears, move it to the top with the new timestamp rather than duplicating it.
+
+## Step 5 — Confirm
+
+Report: the absolute path written, which template was used, whether a prior snapshot was preserved, and that the pointer index was updated. Keep it human-readable. A contributor with zero context should be able to read it and know what is going on and what to do next.

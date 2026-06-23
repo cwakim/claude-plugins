@@ -6,7 +6,7 @@ A small personal marketplace of [Claude Code](https://claude.com/claude-code) pl
 
 ```text
 /plugin marketplace add cwakim/claude-plugins
-/plugin install <plugin-name>
+/plugin install <plugin-name>@cwakim-plugins
 ```
 
 ## Plugins
