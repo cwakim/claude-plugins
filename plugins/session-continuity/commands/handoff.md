@@ -16,6 +16,7 @@ Parse optional arguments, in any order:
 
 - **A path** (anything containing `/` or ending in `.md`) → the destination file. Expand a leading `~`. Examples: `~/Desktop/auth-refactor.md`, `notes/that-chat.md`.
 - **The word `ideas`** (or `capture`) → use the **idea-capture** template instead of the default work template.
+- **The word `archive`** (optionally followed by a thread name) → retire a finished thread: move its note into an archive folder and clear it out of the active handoff. This follows the **Archive mode** section below instead of Steps 1-5.
 - No path given → default to `.claude/handoff.md` in the current working directory (create `.claude/` if needed).
 - No mode word given → use the **work** template.
 
@@ -105,3 +106,19 @@ The template tag (`work` or `ideas`) and the goal let `/pickup` choose the right
 ## Step 5 — Confirm
 
 Report: the absolute path written, which template was used, whether you revised an existing note in place or started a fresh one, and that the pointer index was updated. If any durable rules ended up in the note, name them here and suggest moving them to `CLAUDE.md` (see the note in Step 1). Keep it human-readable. A contributor with zero context should be able to read it and know what is going on and what to do next.
+
+## Archive mode (`archive`)
+
+Invoked as `/handoff archive` (optionally `/handoff archive <thread name>` or with a path). Use it when a thread is **done** — shipped, closed, nothing left to pick up — so the active handoff always describes *live* work, not finished work. This replaces the normal Steps 1-5.
+
+1. **Resolve the note.** Same as a normal handoff: the path argument if given, else `.claude/handoff.md` in the current working directory. If it does not exist, say so and stop. If the file holds several `## <thread>` sections and the user named one, operate on just that section; otherwise on the whole note.
+
+2. **Check it is actually finished.** If `Next / blocked` or `Held back (and why)` still lists open items, point them out and confirm the user really wants to archive — archiving a thread with live work buries context. When in doubt, ask.
+
+3. **Move it to the archive.** Write the note (or the single section) to `handoff-archive/<slug>-YYYY-MM-DD.md` beside the source file, creating `handoff-archive/` if needed. `<slug>` is the kebab-cased thread name from the title (fallback `handoff`). The archive folder sits next to the source, so it inherits the same gitignore status; if the active handoff was gitignored, confirm the archive folder is too.
+
+4. **Clear the active slot.** Remove the archived content from the active file: if it was the whole note, delete the active file; if it was one section of a multi-thread file, drop just that section and leave the rest intact.
+
+5. **Update the index.** Remove the now-dead active-path entry from `~/.claude/handoff-index.md` (if the active file is gone). Do **not** add the archived path — archives are retired, not routine `/pickup` targets.
+
+6. **Confirm.** Report the archive path, what was cleared from the active file, and the index update.
