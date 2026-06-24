@@ -26,7 +26,7 @@ It is a baton pass, not a context restore.
 /pickup ~/Desktop/that-chat.md   # pick up from a specific file
 ```
 
-`/handoff` keeps one **living current-state note** per thread: on a repeat handoff it revises that page in place — folding in new progress, retiring finished items, dropping what's obsolete — rather than stacking a dated entry, so the file stays roughly one screen instead of growing into a diary. It warns before writing an un-ignored file inside a git repo, and starts a separate file (or asks) for an unrelated thread. `/pickup` verifies the note before acting on it — against `git status` for a work note, or against the resources it references for an idea capture.
+`/handoff` keeps one **living current-state note** per thread: on a repeat handoff it revises that page in place — folding in new progress, retiring finished items, dropping what's obsolete — rather than stacking a dated entry, so the file stays roughly one screen instead of growing into a diary. It warns before writing an un-ignored file inside a git repo, and starts a separate file (or asks) for an unrelated thread. `/pickup` reports how old the note is and verifies it before acting — against `git status` for a work note, or against the resources it references for an idea capture — checking harder the staler the note is. When it falls back to the pointer index to locate a handoff, it prunes entries pointing at deleted files so the index stays clean.
 
 ## Install
 
