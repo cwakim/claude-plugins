@@ -8,6 +8,8 @@ Distill the current conversation into a compact, portable markdown snapshot and 
 
 This is **not** a context restore. Unlike resuming a session (which replays the whole raw transcript), a handoff is a deliberate, lossy summary: the substance, not the noise. The goal is that a fresh session, a different machine, or a human contributor can continue from a single readable page instead of rehydrating a long, messy thread.
 
+It is also **not** a log of past sessions. A handoff is a *living current-state note* for an ongoing thread: what the thing is, where it stands right now, what shipped, what was deliberately held back and why. When you handoff again on the same thread, you **update that one page in place** to match reality — you do not stack a new dated entry on top. The file should always read as "here is the state now," roughly one screen, never a diary of everything that ever happened.
+
 ## Arguments (`$ARGUMENTS`)
 
 Parse optional arguments, in any order:
@@ -22,26 +24,37 @@ Parse optional arguments, in any order:
 **Work template** (default, for resuming a task):
 
 ```markdown
-# Handoff — YYYY-MM-DD
+# <thread name> — working state (updated YYYY-MM-DD)
 
 ## Goal
 The overarching objective, 1-3 sentences.
 
-## Done
-What is complete and verified. Cite ground truth (branch names, commit hashes,
+## Status now
+Where the thread stands right now: what's live, what's in progress, which
+files / branches are in play. Cite ground truth (branch names, commit hashes,
 file paths) rather than re-describing code that the repo already holds.
 
-## In play
-Files / branches currently being touched.
+## Shipped, watch for
+Things built and pushed that may still need fixes — name the change and the
+suspected weak spot, so a follow-up knows where to look. Omit the heading if empty.
+
+## Held back (and why)
+Anything deliberately NOT done yet — not pushed to prod, parked on a branch,
+deferred — each with the reason. This is the context that is easy to lose.
+Omit the heading if empty.
 
 ## Next / blocked
 The immediate next step, or the exact thing we are stuck on. Be specific.
 
 ## Constraints
-Workflow rules, preferences, and gotchas that must stay in effect.
+Session-specific gotchas still in effect (see the note below).
 ```
 
-If the session covered **several parallel threads** (e.g. different repos or unrelated tasks), repeat `## Goal` / `## Done` / `## Next` per thread under a `### <thread name>` heading rather than flattening them into one list. Date any fact whose freshness matters (`as of YYYY-MM-DD`), and flag anything you suspect has since drifted with a short `STALE?` note — a picker-up trusts a dated, hedged fact more than a confident stale one.
+This is the page you **revise in place** on the next handoff: move finished items out of `Shipped, watch for` once they're confirmed stable, clear resolved entries from `Held back`, update `Status now`. Date any fact whose freshness matters (`as of YYYY-MM-DD`).
+
+If the file genuinely tracks **several parallel threads** (e.g. different repos or unrelated tasks), give each its own `## <thread name>` section with this structure nested under it, rather than flattening them into one list — but prefer a separate file per thread (see Step 2) so each stays a clean one-screen note.
+
+**Keep durable rules out of the note.** Workflow rules and project constants that hold across every session (branch/push policy, prose conventions, tooling gotchas) belong in the project's `CLAUDE.md`, which loads every session anyway — repeating them in the note is a top cause of handoff bloat. The `## Constraints` section should carry only *session-specific* gotchas: a hash that will change, a change parked on a branch, a one-off caveat. When you spot a durable rule sitting in the note (or being carried forward every time), **proactively suggest** moving it to `CLAUDE.md`: name the specific rules and tell the user "I'd suggest putting these in `CLAUDE.md` so they stop getting repeated here." Then act on their answer — never edit `CLAUDE.md` without asking first.
 
 **Idea-capture template** (`ideas`, for a conversation worth keeping):
 
@@ -61,11 +74,19 @@ What was concluded or decided, and the reasoning.
 Questions left unresolved, things to explore next.
 ```
 
-## Step 2 — Preserve history (never clobber)
+## Step 2 — Revise the living note in place (don't stack)
 
-If the destination file already exists, do **not** overwrite it. Read it first, then write the **new** snapshot at the top, separated from the existing content by a single blank line, followed by that existing content verbatim. Newest snapshot is always first. If the file has grown long with many old snapshots you may trim the oldest, but never drop the immediately preceding one.
+If the destination file does **not** exist yet, just write a fresh note from the template.
 
-Each snapshot is delimited by its own dated top-level heading (`# Handoff — YYYY-MM-DD` or `# Conversation snapshot — YYYY-MM-DD`), which is what `/pickup` splits on. Do **not** use a `---` rule as the separator: a snapshot body can legitimately contain one, which would split it mid-snapshot. The heading is the boundary.
+If it **does** exist, read it first and decide whether this conversation continues the *same thread* that note describes:
+
+- **Same thread (the common case)** → **rewrite the note in place** so it reflects reality now. Carry forward what's still true, fold this session's progress into `Status now`, move newly-shipped work into `Shipped, watch for` (and retire items there once they're confirmed stable), update `Held back (and why)`, and **delete whatever is now obsolete**. The result is one current-state page that replaces the old one — not a new entry added above it. Bump the `updated: YYYY-MM-DD` in the title. Do not preserve the previous version inside the file; this is a living note, not a changelog (git already has the history when the file is tracked).
+
+- **Different / unrelated thread** → don't graft it onto an unrelated note. Prefer a **separate file** (e.g. `.claude/handoff-<thread>.md`) so each thread stays a clean one-screen page. If the user wants to reuse the same file, **ask** whether to replace the existing note or keep both as side-by-side `## <thread>` sections — never silently overwrite an unrelated note.
+
+When in doubt about whether it's the same thread, ask rather than guess — overwriting the wrong note loses real context.
+
+The note's title is a single top-level heading (`# <thread name> — working state …`), which is what `/pickup` reads. Do **not** use a `---` rule inside the note as a structural separator: keep the section `##` headings as the structure.
 
 ## Step 3 — Gitignore awareness
 
@@ -83,4 +104,4 @@ The template tag (`work` or `ideas`) and the goal let `/pickup` choose the right
 
 ## Step 5 — Confirm
 
-Report: the absolute path written, which template was used, whether a prior snapshot was preserved, and that the pointer index was updated. Keep it human-readable. A contributor with zero context should be able to read it and know what is going on and what to do next.
+Report: the absolute path written, which template was used, whether you revised an existing note in place or started a fresh one, and that the pointer index was updated. If any durable rules ended up in the note, name them here and suggest moving them to `CLAUDE.md` (see the note in Step 1). Keep it human-readable. A contributor with zero context should be able to read it and know what is going on and what to do next.

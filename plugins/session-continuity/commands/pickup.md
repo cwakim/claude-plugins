@@ -23,9 +23,9 @@ A handoff does not always live in the current repo — it may have been written 
 
 If the resolved handoff lives **outside** the current working directory, say so explicitly and name its absolute path before acting on it — so a stale or wrong-repo pickup is obvious rather than silent.
 
-## Step 1 — Read the most recent snapshot
+## Step 1 — Read the note
 
-The file may hold several snapshots, newest first, each delimited by its own dated top-level heading (`# Handoff — …` or `# Conversation snapshot — …`). Split on those headings — not on `---`, since a snapshot body can contain a horizontal rule. Read the **top** one as the active state. Note that older snapshots exist, but do not act on them unless asked.
+A handoff is normally a single living current-state note (one top-level `#` heading), so just read it. If the file holds more than one thread as side-by-side `## <thread>` sections, read the one that matches what you're picking up (ask if it's ambiguous). For an older-style file that stacked several dated snapshots, read the **top** one as the active state and ignore the rest unless asked. Split on top-level headings, not on `---`, since a body can contain a horizontal rule.
 
 ## Step 2 — Verify before acting
 
