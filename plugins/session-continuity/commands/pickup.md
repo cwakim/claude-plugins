@@ -18,7 +18,7 @@ This is the other half of `/handoff`: a baton pass, not a session restore. It de
 A handoff does not always live in the current repo — it may have been written from a sibling repo, the Desktop, or elsewhere. Walk this order and stop at the first hit:
 
 1. `.claude/handoff.md` in the current working directory.
-2. The newest live entry in `~/.claude/handoff-index.md` (the pointer index `/handoff` maintains). Read the index and walk it top-down to the first path that still exists — entries can point at handoffs that were since deleted, so do not dead-end on a stale newest entry. Mention any dead entries you skipped (they can be pruned).
+2. The newest live entry in `~/.claude/handoff-index.md` (the pointer index `/handoff` maintains). Read the index and walk it top-down to the first path that still exists — entries can point at handoffs that were since deleted, so do not dead-end on a stale newest entry. **Prune as you go:** any entry whose path no longer exists is dead, so rewrite the index without those lines (keep the live ones in order) and tell the user which you removed. This keeps the index from accumulating pointers to deleted handoffs.
 3. If neither resolves, say so and ask where the handoff lives.
 
 If the resolved handoff lives **outside** the current working directory, say so explicitly and name its absolute path before acting on it — so a stale or wrong-repo pickup is obvious rather than silent.
@@ -27,6 +27,8 @@ If the resolved handoff lives **outside** the current working directory, say so 
 
 A handoff is normally a single living current-state note (one top-level `#` heading), so just read it. If the file holds more than one thread as side-by-side `## <thread>` sections, read the one that matches what you're picking up (ask if it's ambiguous). For an older-style file that stacked several dated snapshots, read the **top** one as the active state and ignore the rest unless asked. Split on top-level headings, not on `---`, since a body can contain a horizontal rule.
 
+**Note how old the note is.** Parse the date from the title (`updated YYYY-MM-DD`, or the `— YYYY-MM-DD` on an idea capture); fall back to the file's modification time if there's no date. State the age when you summarize ("this note is 2 days old" vs "6 weeks old"), and let the gap calibrate how hard you verify in Step 2: a fresh note can be trusted lightly, a stale one warrants re-checking its claims before you act on them.
+
 ## Step 2 — Verify before acting
 
 A handoff is a point-in-time summary and may have drifted from reality since it was written. Verify against ground truth before acting, but match the verification to what the snapshot is:
@@ -34,7 +36,7 @@ A handoff is a point-in-time summary and may have drifted from reality since it 
 - **Work snapshot in a git repo** (`# Handoff — …`): run `git status` and `git log` to confirm the branch and recent commits match what it describes, and spot-check that the files it names still exist and look as described.
 - **Idea capture** (`# Conversation snapshot — …`), or any snapshot written outside a repo: there is no branch to check. Instead spot-check that any files, URLs, or resources it references still exist, and confirm the framing still holds before continuing.
 
-If anything has diverged, flag it to the user instead of trusting the snapshot blindly.
+If anything has diverged, flag it to the user instead of trusting the snapshot blindly. The older the note (see its age from Step 1), the harder you should look — most divergence is a function of elapsed time.
 
 ## Step 3 — Continue
 
