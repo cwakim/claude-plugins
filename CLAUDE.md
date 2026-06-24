@@ -36,6 +36,9 @@ README.md                              # root: install + plugin table
 
 - **PR-based**: branch, open a PR, self-merge. Branches auto-delete on merge.
   Do not commit directly to `main`.
+- **Use the PR template** at `.github/pull_request_template.md` for the PR body:
+  fill out Summary / Type of change / Checklist / Notes for reviewers. Do not
+  substitute a freeform body.
 - Never push without asking.
 - **Prose**: no em-dashes or en-dashes.
 - After merging a plugin change, refresh the dogfooded install with
