@@ -1,0 +1,9 @@
+{
+    "name": "branch-cleanup",
+    "description": "Safely delete branches already merged into a base branch, locally and on the remote — protects long-lived branches, never force-deletes, and always confirms first.",
+    "version": "0.1.0",
+    "author": {
+        "name": "Charbel Wakim",
+        "email": "me@charbelwakim.com"
+    }
+}

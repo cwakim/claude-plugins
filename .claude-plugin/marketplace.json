@@ -13,6 +13,12 @@
             "source": "./plugins/session-continuity",
             "description": "Save a portable, human-readable snapshot of a conversation (/handoff) and pick it back up later (/pickup).",
             "version": "0.1.5"
+        },
+        {
+            "name": "branch-cleanup",
+            "source": "./plugins/branch-cleanup",
+            "description": "Safely delete branches already merged into a base branch (local and remote), protecting long-lived branches and never force-deleting.",
+            "version": "0.1.0"
         }
     ]
 }
