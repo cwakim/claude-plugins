@@ -14,6 +14,7 @@ A small personal marketplace of [Claude Code](https://claude.com/claude-code) pl
 | Plugin | What it does |
 |--------|--------------|
 | [session-continuity](plugins/session-continuity) | `/handoff` saves a portable snapshot of a conversation; `/pickup` picks it back up. A baton pass, not a context restore. |
+| [branch-cleanup](plugins/branch-cleanup) | `/cleanup` deletes branches already merged into a base branch, local and remote. Protects long-lived branches, never force-deletes, always confirms. |
 
 ---
 
