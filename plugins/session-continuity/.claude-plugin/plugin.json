@@ -1,9 +1,10 @@
 {
     "name": "session-continuity",
     "description": "Save a portable, human-readable snapshot of a conversation (/handoff) and pick it back up later (/pickup) — for a fresh session, a new machine, a vacation, or handing off to a contributor.",
-    "version": "0.1.5",
+    "version": "0.2.0",
     "author": {
         "name": "Charbel Wakim",
         "email": "me@charbelwakim.com"
-    }
+    },
+    "hooks": "./hooks/hooks.json"
 }

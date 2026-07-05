@@ -44,12 +44,23 @@ Anything deliberately NOT done yet — not pushed to prod, parked on a branch,
 deferred — each with the reason. This is the context that is easy to lose.
 Omit the heading if empty.
 
+## Decided (don't revisit)
+Choices made and the one-line reason: "chose A over B because ...". This is
+what stops a fresh session from relitigating settled questions. Omit the
+heading if empty.
+
 ## Next / blocked
 The immediate next step, or the exact thing we are stuck on. Be specific.
 
 ## Constraints
 Session-specific gotchas still in effect (see the note below).
+
+_As of branch `<branch>` @ `<short sha>`, <clean tree | dirty: N files>. Session `<session id>`._
 ```
+
+**Fill the ground-truth footer from the repo, not from memory:** `git rev-parse --abbrev-ref HEAD` for the branch, `git rev-parse --short HEAD` for the sha, `git status --porcelain | wc -l` for dirtiness. This footer is what lets `/pickup` verify mechanically ("N commits have landed since") instead of guessing. Outside a git repo, drop the git part and keep just the session line.
+
+**Session id (best effort):** the current session's transcript is the newest `*.jsonl` in `~/.claude/projects/<munged cwd>/`, where the munged name is the absolute working directory with `/` (and other non-alphanumerics) replaced by `-`. Its basename is the session id. Record it so the user can fall back to `claude --resume <id>` on this machine if the summary turns out too lossy. If the lookup fails, omit the session part silently; never guess an id.
 
 This is the page you **revise in place** on the next handoff: move finished items out of `Shipped, watch for` once they're confirmed stable, clear resolved entries from `Held back`, update `Status now`. Date any fact whose freshness matters (`as of YYYY-MM-DD`).
 
@@ -81,7 +92,7 @@ If the destination file does **not** exist yet, just write a fresh note from the
 
 If it **does** exist, read it first and decide whether this conversation continues the *same thread* that note describes:
 
-- **Same thread (the common case)** → **rewrite the note in place** so it reflects reality now. Carry forward what's still true, fold this session's progress into `Status now`, move newly-shipped work into `Shipped, watch for` (and retire items there once they're confirmed stable), update `Held back (and why)`, and **delete whatever is now obsolete**. The result is one current-state page that replaces the old one — not a new entry added above it. Bump the `updated: YYYY-MM-DD` in the title. Do not preserve the previous version inside the file; this is a living note, not a changelog (git already has the history when the file is tracked).
+- **Same thread (the common case)** → **rewrite the note in place** so it reflects reality now. Carry forward what's still true, fold this session's progress into `Status now`, move newly-shipped work into `Shipped, watch for` (and retire items there once they're confirmed stable), update `Held back (and why)`, keep `Decided (don't revisit)` cumulative (drop an entry only when the decision is genuinely reopened), and **delete whatever is now obsolete**. The result is one current-state page that replaces the old one — not a new entry added above it. Bump the `updated: YYYY-MM-DD` in the title and **refresh the ground-truth footer** (branch, sha, dirtiness, session id) to this session's values. Do not preserve the previous version inside the file; this is a living note, not a changelog (git already has the history when the file is tracked).
 
 - **Different / unrelated thread** → don't graft it onto an unrelated note. Prefer a **separate file** (e.g. `.claude/handoff-<thread>.md`) so each thread stays a clean one-screen page. If the user wants to reuse the same file, **ask** whether to replace the existing note or keep both as side-by-side `## <thread>` sections — never silently overwrite an unrelated note.
 

@@ -12,7 +12,7 @@
             "name": "session-continuity",
             "source": "./plugins/session-continuity",
             "description": "Save a portable, human-readable snapshot of a conversation (/handoff) and pick it back up later (/pickup).",
-            "version": "0.1.5"
+            "version": "0.2.0"
         },
         {
             "name": "branch-cleanup",
