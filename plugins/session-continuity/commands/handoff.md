@@ -58,7 +58,7 @@ Session-specific gotchas still in effect (see the note below).
 _As of branch `<branch>` @ `<short sha>`, <clean tree | dirty: N files>. Session `<session id>`._
 ```
 
-**Fill the ground-truth footer from the repo, not from memory:** `git rev-parse --abbrev-ref HEAD` for the branch, `git rev-parse --short HEAD` for the sha, `git status --porcelain | wc -l` for dirtiness. This footer is what lets `/pickup` verify mechanically ("N commits have landed since") instead of guessing. Outside a git repo, drop the git part and keep just the session line.
+**Fill the ground-truth footer from the repo, not from memory:** `git rev-parse --abbrev-ref HEAD` for the branch, `git rev-parse --short HEAD` for the sha, `git status --porcelain | wc -l` for dirtiness. This footer is what lets `/pickup` verify mechanically ("N commits have landed since") instead of guessing. Outside a git repo, drop the git part and keep just the session line. Fill the footer **last**, after any commits or gitignore changes this handoff will itself make; a footer written mid-flow is stale before the note is even saved.
 
 **Session id (best effort):** the current session's transcript is the newest `*.jsonl` in `~/.claude/projects/<munged cwd>/`, where the munged name is the absolute working directory with `/` (and other non-alphanumerics) replaced by `-`. Its basename is the session id. Record it so the user can fall back to `claude --resume <id>` on this machine if the summary turns out too lossy. If the lookup fails, omit the session part silently; never guess an id.
 
