@@ -1,0 +1,9 @@
+{
+    "name": "memory-gardener",
+    "description": "Audit and prune Claude Code's persistent memory: verify stale claims against the project, catch contradictions and duplicates, then fix them through one confirmed docket — never silently rewriting what a memory means.",
+    "version": "0.1.0",
+    "author": {
+        "name": "Charbel Wakim",
+        "email": "me@charbelwakim.com"
+    }
+}
