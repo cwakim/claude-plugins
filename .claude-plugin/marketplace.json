@@ -23,8 +23,8 @@
         {
             "name": "memory-gardener",
             "source": "./plugins/memory-gardener",
-            "description": "Audit and prune Claude Code's persistent memory (/garden): verify stale claims against the project, catch contradictions and duplicates, fix them through one confirmed docket.",
-            "version": "0.1.0"
+            "description": "Audit and prune Claude Code's persistent memory (/garden): verify stale claims against the project, catch contradictions and duplicates, fix them through one confirmed docket. Session-start nudge + optional scheduled dry-run audits.",
+            "version": "0.2.0"
         }
     ]
 }

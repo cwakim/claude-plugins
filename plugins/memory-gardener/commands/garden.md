@@ -24,10 +24,34 @@ a memory *claims* without showing it in the docket and getting a yes.
 - **`--older-than <N>d`** only audits memory files whose last modification is more
   than N days ago (per `stat`/`git log` on the file).
 - **`--dry-run`** stops after presenting the docket: no questions, no edits, no
-  deletions.
+  deletions. (It still writes the docket artifact — see State directory.)
+- **`schedule`** sets up a local cron job that runs the dry-run periodically —
+  follow the **Schedule mode** section instead of steps 1-5.
+- **`unschedule`** removes that cron job — see Schedule mode.
 
 Examples: `/garden`, `/garden project`, `/garden feedback --older-than 60d`,
-`/garden --dry-run`.
+`/garden --dry-run`, `/garden schedule`, `/garden unschedule`.
+
+## State directory
+
+The gardener keeps its bookkeeping in `~/.claude/projects/<slug>/garden/`
+(sibling of the `memory/` store, never inside it, so it can't pollute the
+audit):
+
+- `docket.md` — the docket from the most recent audit (written on every run,
+  including dry-runs, so a scheduled headless dry-run leaves its findings
+  behind for a human to read).
+- `needs-real-run` — marker containing the count of open items (confirmed
+  stale + suspected). Written when that count is > 0, deleted when it is 0.
+- `last-real-run` — epoch timestamp of the last completed real run.
+- `last-nudge`, `cron.log` — used by the SessionStart nudge hook and the cron
+  job respectively.
+
+The plugin's SessionStart hook reads this directory to nudge at session start:
+with a fresh `docket.md` + `needs-real-run` it reports the actual finding count
+(evidence nudge); otherwise it falls back to a rate-limited heuristic (how many
+memory files changed since `last-real-run`). A real run clearing the artifacts
+is what silences the nudge.
 
 ## Step 0: Locate the memory store
 
@@ -96,6 +120,11 @@ Present a single compact docket grouped as:
 3. **Suspected**, phrased as questions only a human can answer.
 4. **Merge proposals** for near-duplicates.
 
+Then, **write the docket artifact** (both dry and real runs): save the docket to
+`~/.claude/projects/<slug>/garden/docket.md`, and write the open-item count
+(confirmed stale + suspected) to `needs-real-run` beside it — or delete that
+marker if the count is 0.
+
 Then:
 
 - Under `--dry-run`, stop here.
@@ -116,6 +145,9 @@ On confirmation:
 2. Apply deletions last.
 3. Rewrite the affected `MEMORY.md` index lines so the index matches the files
    exactly.
+4. Record the run: `date +%s` into the state directory's `last-real-run`, and
+   delete `docket.md` and `needs-real-run` there. This is what resets the
+   SessionStart nudge.
 
 ## Step 5: Report
 
@@ -123,6 +155,50 @@ Summarize: memories audited, housekeeping fixes, confirmed-stale items updated,
 merges, deletions, questions answered, and anything deliberately left alone
 (including dangling `[[links]]` kept as future markers). If nothing was wrong,
 say the store is clean and how many memories were checked.
+
+Finally, if this project has no scheduled audit yet (`crontab -l 2>/dev/null |
+grep "# memory-gardener:<slug>"` is empty), mention once that `/garden schedule`
+can run the dry-run automatically and leave a docket for the session-start
+nudge. Just mention it; do not set anything up unasked.
+
+## Schedule mode (`schedule` / `unschedule`)
+
+Sets up (or removes) a **local cron job** that runs the dry-run headlessly on a
+cadence and leaves its docket in the state directory, upgrading the
+SessionStart nudge from heuristic to evidence-based. Local cron, not a cloud
+routine: the memory store lives on this machine, so a cloud agent cannot read
+it.
+
+**`unschedule`:** remove this project's entry and confirm:
+```bash
+crontab -l 2>/dev/null | grep -v "# memory-gardener:<slug>" | crontab -
+```
+
+**`schedule`:**
+
+1. Compute the project slug (as in Step 0) and check for an existing entry
+   (`crontab -l 2>/dev/null | grep "# memory-gardener:<slug>"`). If one exists,
+   show it and ask whether to replace or keep it.
+2. Ask the cadence via `AskUserQuestion` (e.g. weekly Monday 09:00, every two
+   weeks, monthly on the 1st — monthly is the sensible default for one
+   actively-used project).
+3. Resolve the absolute `claude` binary path (`command -v claude`) — cron's
+   PATH is minimal and will not find it otherwise.
+4. Append the entry (never overwrite other lines):
+   ```bash
+   (crontab -l 2>/dev/null; echo '<min> <hour> <dom> * <dow> cd <abs-project-dir> && <abs-claude> -p "/memory-gardener:garden --dry-run" --allowedTools "Read,Glob,Grep,Write,Bash" >> <state-dir>/cron.log 2>&1 # memory-gardener:<slug>') | crontab -
+   ```
+   The `--allowedTools` list is what lets the headless run work without a human
+   approving tool calls: reads for the audit, Bash for the evidence checks,
+   Write for the docket artifact. Warn the user this grants those tools
+   unattended for that run.
+5. Offer a smoke test: run the exact command once in the foreground and confirm
+   it exits cleanly and `docket.md` appears in the state directory. Headless
+   runs consume plan/API usage — say so when the user picks an aggressive
+   cadence (weekly or tighter).
+6. Report the installed crontab line and how to remove it (`/garden
+   unschedule`). Note: uninstalling the plugin does **not** remove the cron
+   job (plugins have no uninstall hook) — unschedule first.
 
 ## Notes
 

@@ -36,7 +36,31 @@ you, and it is built around two rules:
 /garden project                  # only memories of type "project"
 /garden feedback --older-than 60d  # only feedback memories untouched for 60+ days
 /garden --dry-run                # show the docket, change nothing, ask nothing
+/garden schedule                 # set up a recurring dry-run audit (local cron)
+/garden unschedule               # remove it
 ```
+
+## The nudge (knowing *when* to garden)
+
+Memory rots with usage, not time, so the plugin ships a SessionStart hook that
+tells you when a run is worth it, instead of you remembering a cadence:
+
+- **Heuristic nudge** (works out of the box): at session start, if enough
+  memories changed since the last real run (5+ within two weeks, or any change
+  after a month), one line suggests a run. Rate-limited to once a week, silent
+  when there is nothing to say, and always exits 0.
+- **Evidence nudge** (opt-in via `/garden schedule`): a local cron job runs
+  `/garden --dry-run` headlessly on the cadence you pick and saves its docket
+  to a state directory (`~/.claude/projects/<slug>/garden/`, outside the repo
+  and outside the memory store). The nudge then reports actual findings
+  ("the last audit found 7 open items") instead of a guess, and you read the
+  docket before deciding. Detection is automatic; decisions stay yours.
+
+It is local cron rather than a scheduled cloud routine on purpose: the memory
+store lives on your machine, and a cloud agent cannot read it. The scheduled
+run needs `claude` on the machine and consumes plan/API usage per run, so
+monthly is a sensible default. A completed real run clears the docket and
+silences the nudge.
 
 ## Notes
 
@@ -50,6 +74,8 @@ you, and it is built around two rules:
 - The memory layout (a `MEMORY.md` index plus one file per fact) is a Claude
   Code convention that may evolve; the command probes the structure it finds
   and adapts rather than hard-assuming the format.
+- Uninstalling the plugin does **not** remove a scheduled cron job (plugins
+  have no uninstall hook) — run `/garden unschedule` first.
 
 ## Install
 
