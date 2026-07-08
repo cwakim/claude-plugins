@@ -1,0 +1,138 @@
+---
+description: Audit the project's persistent memory for rot (stale claims, contradictions, duplicates, index drift), verify what the project itself can prove, and fix the rest through one confirmed docket.
+---
+
+# Memory Gardener
+
+Audit this project's persistent memory directory and clean it up. Memory rots in
+predictable ways: "not yet done" flags that got done, entries that contradict newer
+ones, duplicates saved in different sessions, index lines drifting from file
+contents, and facts the repo now records on its own. Most of that staleness is
+verifiable from the project itself, so verify it yourself first and bring the user
+only the residue that a human has to answer.
+
+The contract: **housekeeping is silent, meaning changes are confirmed.** You may
+fix a broken index line on your own, but you never rewrite, merge, or delete what
+a memory *claims* without showing it in the docket and getting a yes.
+
+## Arguments
+
+`$ARGUMENTS` is optional and freeform:
+
+- **A memory type** (`user`, `feedback`, `project`, `reference`) limits the audit
+  to memories of that type. Multiple types may be given.
+- **`--older-than <N>d`** only audits memory files whose last modification is more
+  than N days ago (per `stat`/`git log` on the file).
+- **`--dry-run`** stops after presenting the docket: no questions, no edits, no
+  deletions.
+
+Examples: `/garden`, `/garden project`, `/garden feedback --older-than 60d`,
+`/garden --dry-run`.
+
+## Step 0: Locate the memory store
+
+Use the memory directory declared in your system prompt's Memory section. If none
+is declared, derive it from the working directory: Claude Code stores per-project
+memory at `~/.claude/projects/<slug>/memory/` where `<slug>` is the absolute
+project path with `/` replaced by `-`.
+
+If the directory does not exist or has no memory files, say so and stop; there is
+nothing to garden.
+
+The expected shape is the current Claude Code convention: a `MEMORY.md` index
+(one pointer line per memory) plus one file per fact with YAML frontmatter
+(`name`, `description`, `metadata.type`) and `[[name]]` links between memories.
+**Probe rather than assume.** If the store deviates (no index, different
+frontmatter, extra files), adapt to what is actually there and note the deviation
+in the report instead of "fixing" the user's format.
+
+## Step 1: Mechanical audit (silent housekeeping)
+
+Read `MEMORY.md` and every memory file. Collect:
+
+- Index lines pointing at files that do not exist.
+- Memory files missing from the index.
+- `[[links]]` naming a memory that does not exist. (These are allowed by
+  convention as "worth writing later" markers; flag them as FYI, do not remove.)
+- Malformed or missing frontmatter (`name` mismatching the filename, missing
+  `description` or `metadata.type`).
+- Index descriptions that no longer match the file's actual content.
+
+These are structural fixes that change no meaning: apply them without asking, and
+list what was fixed in the final report under "housekeeping."
+
+## Step 2: Evidence check (verify, do not ask)
+
+For each memory in scope, test its claims against reality before considering a
+question to the user:
+
+- **Repo-checkable claims.** A memory naming a file, directory, branch, command,
+  flag, config key, or feature: check the working tree, `git branch`, and project
+  config for it. A memory saying something is "not yet done" or "planned": look
+  for evidence it since happened (the code exists, the frontmatter is there, the
+  branch merged).
+- **Cross-memory contradictions.** Two memories asserting incompatible facts.
+  Newer file wins as the *suspected* truth, but the resolution still goes through
+  the docket.
+- **Duplication of the repo's own record.** Memory should not store what the
+  project already records (CLAUDE.md, README, code structure, git history). A
+  memory that is now fully covered by a checked-in doc is a delete candidate.
+- **Near-duplicate memories.** Two files covering the same fact are a merge
+  candidate: propose one merged file and which filename survives.
+- **Time drift.** Relative dates ("last week", "currently") and claims tied to a
+  date that has passed.
+
+Label every finding **confirmed** (you have the evidence in hand; cite it) or
+**suspected** (plausible but unverifiable from the machine: personal facts,
+intentions, off-repo state like an external service or another machine).
+
+## Step 3: The docket (one batched review, not a quiz)
+
+Present a single compact docket grouped as:
+
+1. **Housekeeping** (already fixed in step 1, listed for transparency).
+2. **Confirmed stale**, each with the evidence and the proposed edit, merge, or
+   deletion.
+3. **Suspected**, phrased as questions only a human can answer.
+4. **Merge proposals** for near-duplicates.
+
+Then:
+
+- Under `--dry-run`, stop here.
+- Otherwise ask the **suspected** items via `AskUserQuestion`, batched into as few
+  calls as possible (it takes up to 4 questions per call). Never walk the list one
+  memory at a time; in a healthy store this is 2 or 3 questions total.
+- Ask one final confirmation for the whole set of proposed meaning changes
+  (edits, merges, deletions). Proceed only on an explicit yes; honor partial
+  approval if the user picks a subset.
+
+## Step 4: Apply
+
+On confirmation:
+
+1. Apply edits and merges first. When merging, keep the richer file, fold in the
+   unique content from the other, and update every `[[link]]` that pointed at the
+   retired name.
+2. Apply deletions last.
+3. Rewrite the affected `MEMORY.md` index lines so the index matches the files
+   exactly.
+
+## Step 5: Report
+
+Summarize: memories audited, housekeeping fixes, confirmed-stale items updated,
+merges, deletions, questions answered, and anything deliberately left alone
+(including dangling `[[links]]` kept as future markers). If nothing was wrong,
+say the store is clean and how many memories were checked.
+
+## Notes
+
+- **Never delete or rewrite a memory's meaning without it appearing in the docket
+  and being approved.** The silent lane is strictly structural.
+- A memory being old is not evidence it is wrong. Age alone never justifies
+  deletion; only contradiction, obsolescence, or duplication does.
+- When the user's answer contradicts a memory, update the memory to the answer
+  (converting relative dates to absolute) rather than deleting it, unless it is
+  genuinely obsolete.
+- This command edits only the memory directory. It never modifies the project's
+  files, CLAUDE.md included, even when a memory belongs there instead; propose
+  that move in the report and let the user do it.

@@ -19,6 +19,12 @@
             "source": "./plugins/branch-cleanup",
             "description": "Safely delete branches already merged into a base branch (local and remote), protecting long-lived branches and never force-deleting.",
             "version": "0.1.0"
+        },
+        {
+            "name": "memory-gardener",
+            "source": "./plugins/memory-gardener",
+            "description": "Audit and prune Claude Code's persistent memory (/garden): verify stale claims against the project, catch contradictions and duplicates, fix them through one confirmed docket.",
+            "version": "0.1.0"
         }
     ]
 }
