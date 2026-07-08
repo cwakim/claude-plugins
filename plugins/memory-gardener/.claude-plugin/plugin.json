@@ -1,6 +1,6 @@
 {
     "name": "memory-gardener",
-    "description": "Audit and prune Claude Code's persistent memory: verify stale claims against the project, catch contradictions and duplicates, then fix them through one confirmed docket — never silently rewriting what a memory means. Nudges at session start when the store needs attention; /garden schedule adds a cron-powered dry-run audit.",
+    "description": "Audit and prune Claude Code's persistent memory: verify stale claims against the project, catch contradictions and duplicates, then fix them through one confirmed docket, never silently rewriting what a memory means. Nudges at session start when the store needs attention; /garden schedule adds a cron-powered dry-run audit.",
     "version": "0.2.0",
     "author": {
         "name": "Charbel Wakim",

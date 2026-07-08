@@ -24,10 +24,10 @@ a memory *claims* without showing it in the docket and getting a yes.
 - **`--older-than <N>d`** only audits memory files whose last modification is more
   than N days ago (per `stat`/`git log` on the file).
 - **`--dry-run`** stops after presenting the docket: no questions, no edits, no
-  deletions. (It still writes the docket artifact — see State directory.)
-- **`schedule`** sets up a local cron job that runs the dry-run periodically —
+  deletions. (It still writes the docket artifact; see State directory.)
+- **`schedule`** sets up a local cron job that runs the dry-run periodically;
   follow the **Schedule mode** section instead of steps 1-5.
-- **`unschedule`** removes that cron job — see Schedule mode.
+- **`unschedule`** removes that cron job; see Schedule mode.
 
 Examples: `/garden`, `/garden project`, `/garden feedback --older-than 60d`,
 `/garden --dry-run`, `/garden schedule`, `/garden unschedule`.
@@ -38,13 +38,13 @@ The gardener keeps its bookkeeping in `~/.claude/projects/<slug>/garden/`
 (sibling of the `memory/` store, never inside it, so it can't pollute the
 audit):
 
-- `docket.md` — the docket from the most recent audit (written on every run,
+- `docket.md`: the docket from the most recent audit (written on every run,
   including dry-runs, so a scheduled headless dry-run leaves its findings
   behind for a human to read).
-- `needs-real-run` — marker containing the count of open items (confirmed
+- `needs-real-run`: marker containing the count of open items (confirmed
   stale + suspected). Written when that count is > 0, deleted when it is 0.
-- `last-real-run` — epoch timestamp of the last completed real run.
-- `last-nudge`, `cron.log` — used by the SessionStart nudge hook and the cron
+- `last-real-run`: epoch timestamp of the last completed real run.
+- `last-nudge`, `cron.log`: used by the SessionStart nudge hook and the cron
   job respectively.
 
 The plugin's SessionStart hook reads this directory to nudge at session start:
@@ -122,7 +122,7 @@ Present a single compact docket grouped as:
 
 Then, **write the docket artifact** (both dry and real runs): save the docket to
 `~/.claude/projects/<slug>/garden/docket.md`, and write the open-item count
-(confirmed stale + suspected) to `needs-real-run` beside it — or delete that
+(confirmed stale + suspected) to `needs-real-run` beside it, or delete that
 marker if the count is 0.
 
 Then:
@@ -180,13 +180,15 @@ crontab -l 2>/dev/null | grep -v "# memory-gardener:<slug>" | crontab -
    (`crontab -l 2>/dev/null | grep "# memory-gardener:<slug>"`). If one exists,
    show it and ask whether to replace or keep it.
 2. Ask the cadence via `AskUserQuestion` (e.g. weekly Monday 09:00, every two
-   weeks, monthly on the 1st — monthly is the sensible default for one
+   weeks, monthly on the 1st; monthly is the sensible default for one
    actively-used project).
-3. Resolve the absolute `claude` binary path (`command -v claude`) — cron's
+3. Resolve the absolute `claude` binary path (`command -v claude`): cron's
    PATH is minimal and will not find it otherwise.
-4. Append the entry (never overwrite other lines):
+4. Append the entry (never overwrite other lines). The `mkdir -p` matters:
+   shell redirection does not create directories, so without it the job fails
+   silently on a machine where the state dir does not exist yet.
    ```bash
-   (crontab -l 2>/dev/null; echo '<min> <hour> <dom> * <dow> cd <abs-project-dir> && <abs-claude> -p "/memory-gardener:garden --dry-run" --allowedTools "Read,Glob,Grep,Write,Bash" >> <state-dir>/cron.log 2>&1 # memory-gardener:<slug>') | crontab -
+   (crontab -l 2>/dev/null; echo '<min> <hour> <dom> * <dow> cd <abs-project-dir> && mkdir -p <state-dir> && <abs-claude> -p "/memory-gardener:garden --dry-run" --allowedTools "Read,Glob,Grep,Write,Bash" >> <state-dir>/cron.log 2>&1 # memory-gardener:<slug>') | crontab -
    ```
    The `--allowedTools` list is what lets the headless run work without a human
    approving tool calls: reads for the audit, Bash for the evidence checks,
@@ -194,11 +196,11 @@ crontab -l 2>/dev/null | grep -v "# memory-gardener:<slug>" | crontab -
    unattended for that run.
 5. Offer a smoke test: run the exact command once in the foreground and confirm
    it exits cleanly and `docket.md` appears in the state directory. Headless
-   runs consume plan/API usage — say so when the user picks an aggressive
+   runs consume plan/API usage; say so when the user picks an aggressive
    cadence (weekly or tighter).
 6. Report the installed crontab line and how to remove it (`/garden
    unschedule`). Note: uninstalling the plugin does **not** remove the cron
-   job (plugins have no uninstall hook) — unschedule first.
+   job (plugins have no uninstall hook); unschedule first.
 
 ## Notes
 
