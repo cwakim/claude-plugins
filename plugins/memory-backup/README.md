@@ -157,6 +157,11 @@ README carries these steps, so they survive even if this machine does not.
 
 - The repo's visibility is verified before **every** push, not just at setup;
   anything other than private aborts the run.
+- **The repo tip always mirrors the machine.** A memory, handoff, plan, or
+  config file you delete locally disappears from the tip on the next run,
+  visibly in that backup's PR diff; git history keeps every version for
+  recovery. Deleted means deleted at the tip, so restore does not resurrect
+  what you removed on purpose.
 - Backup runs write only to `~/.claude/memory-backup/`; live stores are only
   ever written by an explicit `/backup restore`.
 - Restore never deletes a local-only file and never overwrites a differing
