@@ -83,6 +83,18 @@ Three things to know before scheduling:
   permission prompts. The schedule step shows you the exact line and offers a
   foreground smoke test before trusting it to cron.
 
+You can also run the same headless backup yourself at any time, without
+cron, from any terminal; this is exactly what the cron job executes (cron
+uses the absolute `claude` path, which `command -v claude` resolves here):
+
+```bash
+cd ~ && "$(command -v claude)" -p "/memory-backup:backup" --allowedTools "Read,Glob,Grep,Write,Bash"
+```
+
+Useful as a manual push after a heavy session, or to debug a failing cron
+run in the foreground (scheduled runs log to
+`~/.claude/memory-backup/.cron.log`).
+
 ## What gets backed up
 
 ```text
