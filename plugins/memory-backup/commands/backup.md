@@ -155,9 +155,9 @@ and exit cleanly instead of starting setup.
      longer exist; never edit the user's index, sources are read-only. If the
      index does not exist, skip the handoff half entirely and silently;
    - **archived handoffs**, which the index no longer lists by design:
-     `~/.claude/handoff-archive/` and any `handoff-archive/` folder sitting
-     beside a note copied above, each at its home-relative place in the
-     `handoffs/` tree;
+     `~/.claude/handoff-archive/` when present, and any `handoff-archive/`
+     folder sitting beside a note copied above, each at its home-relative
+     place in the `handoffs/` tree;
    - **config**: from `~/.claude/`, into `config/`, when present:
      `CLAUDE.md` plus any file it `@`-references beside it (for example
      `RTK.md`), `settings.json`, `keybindings.json`, and the `commands/`,
@@ -167,7 +167,15 @@ and exit cleanly instead of starting setup.
      like a credential, exclude the file, say so in the report, and carry on.
      **Never** copy `~/.claude.json` (it holds OAuth tokens), transcripts,
      history, caches, or the `plugins/` directory (reinstallable, and
-     `settings.json` records which plugins were enabled).
+     `settings.json` records which plugins were enabled);
+   - **deletions propagate in every tree.** The `handoffs/` and `config/`
+     trees are file-by-file copies, so after copying, remove any mirrored
+     file whose source no longer exists (the memory and plan trees already
+     get this from `rsync --delete`). The invariant: **the repo tip always
+     mirrors the machine.** A file deleted locally disappears from the tip
+     on the next run, visibly in the PR diff, and git history remains the
+     archive it can be recovered from. Without this, restore would resurrect
+     deliberately deleted handoffs and config files.
 4. Write `manifest.json` (hostname, ISO timestamp, the source paths mirrored,
    store, handoff, plan, and config counts). If `git status --porcelain` then shows no
    changes beyond the manifest's timestamp, report "no changes since last
@@ -246,6 +254,10 @@ deletes** anything that exists only locally.
    - **Identical files** (same content): skip silently; never ask about a
      file that would not change.
    - **File only in the backup**: restore it (it cannot clobber anything).
+     With tip-mirrors-machine semantics this only happens for files deleted
+     locally since the last backup run, or on a machine that never had them;
+     either way they appear in the plan summary as additions, so a
+     deliberately deleted file coming back is visible before it happens.
    - **File only local**: keep it untouched; restore never deletes.
    - **File in both, content differs**: a **conflict**; goes to the user.
    Handoffs, plans, and config get the same treatment: every file under

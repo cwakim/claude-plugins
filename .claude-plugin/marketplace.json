@@ -30,7 +30,7 @@
             "name": "memory-backup",
             "source": "./plugins/memory-backup",
             "description": "Back up Claude Code's machine-local state (/backup): mirror every per-project memory store, handoff note (live and archived), plan document, and the hand-written global config to a private GitHub repo, one squash-merged PR per run. Repo visibility verified before every push, refused if public; secrets never included. Diff-aware /backup restore fills empty targets wholesale and asks per conflicting file; optional weekly cron.",
-            "version": "0.3.0"
+            "version": "0.3.1"
         }
     ]
 }
