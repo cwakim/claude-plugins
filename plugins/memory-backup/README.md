@@ -1,20 +1,22 @@
 # memory-backup
 
 Off-machine durability for Claude Code's machine-local state. One command,
-`/backup`, mirrors every per-project memory store, every live handoff note,
-and the plans directory into a staging clone and pushes it to a **private**
-GitHub repo, landing each run as a pull request that is squash-merged
-immediately. Set it up once, then
+`/backup`, mirrors every per-project memory store, every handoff note (live
+and archived), the plans directory, and the hand-written global config
+(`~/.claude/CLAUDE.md` and friends) into a staging clone and pushes it to a
+**private** GitHub repo, landing each run as a pull request that is
+squash-merged immediately. Set it up once, then
 run it by hand or from a weekly cron.
 
 ## Why
 
 Claude Code's persistent memory lives in exactly one place: this machine, one
 directory per project under `~/.claude/projects/<slug>/memory/`. Handoff notes
-are scattered across project repos and are often gitignored; the handoff index
-and the plan documents in `~/.claude/plans/` live outside any repo. None of it
-is reproducible: it is distilled judgment, decisions, and context accumulated
-across sessions. A dead disk loses all of
+are scattered across project repos and are often gitignored; the handoff index,
+the plan documents in `~/.claude/plans/`, and the hand-written global config
+(`~/.claude/CLAUDE.md`, `settings.json`, custom commands and agents) live
+outside any repo. None of it is reproducible: it is distilled judgment,
+decisions, and context accumulated across sessions. A dead disk loses all of
 it at once, and nothing else backs it up.
 
 This plugin exists for that single failure and stays deliberately narrow:
@@ -91,8 +93,13 @@ machines/<hostname>/
     sites-claude-plugins/...             # its project slug minus the home prefix
   handoffs/
     .claude/handoff-index.md             # the handoff index, if one exists
+    .claude/handoff-archive/...          # archived threads (the index drops these)
     sites/personal/.claude/handoff.md    # each live note, at its home-relative path
   plans/...                              # mirror of ~/.claude/plans/
+  config/                                # selected hand-written ~/.claude/ files:
+    CLAUDE.md                            # global instructions + @-referenced files
+    settings.json                        # hooks, plugins, marketplaces (secret-scanned)
+    ...                                  # keybindings.json, commands/, skills/, agents/
 ```
 
 Both trees strip the home prefix, so names stay short, the repo is browsable
@@ -102,7 +109,15 @@ machine's home, which also makes mirrors portable across usernames).
 
 Handoff notes are produced by the session-continuity plugin, but there is no
 dependency: `/backup` reads `~/.claude/handoff-index.md` as a plain file if it
-exists and silently skips the handoff half if it does not.
+exists and silently skips the handoff half if it does not. Archived handoffs
+are collected separately on purpose: archiving removes a note from the index,
+so an index-driven copy alone would silently miss them.
+
+Deliberately excluded: `~/.claude.json` (holds OAuth tokens; never pushed,
+even to a private repo), transcripts, history, caches, and installed plugins
+(reinstallable; `settings.json` records which were enabled). If
+`settings.json` itself contains anything credential-shaped, it is excluded
+from that run and the report says so.
 
 The staging clone lives at `~/.claude/memory-backup/`; that clone existing
 with an origin remote *is* the configuration. Deleting it deconfigures the
@@ -134,9 +149,9 @@ what was restored, added, resolved each way, and skipped as identical.
 For a machine without this plugin, the manual fallback is a plain
 `git clone` plus `rsync` of `machines/<hostname>/memories/<project>/` back
 into `~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/`, handoff
-files back to `~/` plus their relative path, and `plans/` back to
-`~/.claude/plans/`; the backup repo's own README carries these steps, so they
-survive even if this machine does not.
+files back to `~/` plus their relative path, `plans/` back to
+`~/.claude/plans/`, and `config/` back to `~/.claude/`; the backup repo's own
+README carries these steps, so they survive even if this machine does not.
 
 ## Safety guarantees
 
