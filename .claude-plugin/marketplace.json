@@ -25,6 +25,12 @@
             "source": "./plugins/memory-gardener",
             "description": "Audit and prune Claude Code's persistent memory (/garden): verify stale claims against the project, catch contradictions and duplicates, fix them through one confirmed docket. Session-start nudge + optional scheduled dry-run audits.",
             "version": "0.2.0"
+        },
+        {
+            "name": "memory-backup",
+            "source": "./plugins/memory-backup",
+            "description": "Back up Claude Code's machine-local state (/backup): mirror every per-project memory store and live handoff note to a private GitHub repo, one squash-merged PR per run. Repo visibility verified before every push, refused if public. Diff-aware /backup restore fills empty stores wholesale and asks per conflicting file; optional weekly cron.",
+            "version": "0.1.0"
         }
     ]
 }
