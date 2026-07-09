@@ -7,11 +7,12 @@ description: Back up every per-project memory store and live handoff note to a p
 Claude Code's persistent memory lives only on this machine, one store per
 project under `~/.claude/projects/<slug>/memory/`. A dead disk loses all of it
 at once. This command mirrors every store, the plan documents in
-`~/.claude/plans/`, and the handoff notes tracked in
-`~/.claude/handoff-index.md` when that index exists (it is written by the
-session-continuity plugin, but this command does not depend on it: no index
-just means no handoffs to back up), into a staging git repo and pushes each
-run to a **private** GitHub repo. Every run lands through a pull request that
+`~/.claude/plans/`, the hand-written global config in `~/.claude/` (CLAUDE.md
+and friends), and the handoff notes tracked in `~/.claude/handoff-index.md`
+when that index exists (it is written by the session-continuity plugin, but
+this command does not depend on it: no index just means no handoffs to back
+up), plus archived handoffs, into a staging git repo and pushes each run to a
+**private** GitHub repo. Every run lands through a pull request that
 is squash-merged on the spot: main stays protected, the PR history doubles as
 a change log of memory churn, and the backup is complete only when the merge
 is.
@@ -52,8 +53,9 @@ out of scope):
 machines/<hostname>/
   manifest.json               # hostname, ISO timestamp, source paths, counts
   memories/<project>/...      # mirror of each non-empty memory store
-  handoffs/...                # home-relative tree: index + each live note
+  handoffs/...                # home-relative tree: index + live notes + archives
   plans/...                   # mirror of ~/.claude/plans/, if non-empty
+  config/...                  # selected hand-written files from ~/.claude/
 README.md                     # what this repo is + restore instructions
 .gitignore                    # ignores .cron.log
 .cron.log                     # output of scheduled runs (untracked)
@@ -75,6 +77,10 @@ table:
   `handoffs/.claude/handoff-index.md`. Every file restores to `~/` plus its
   relative path. A note outside the home directory keeps its full path
   under `handoffs/`.
+- `config/` mirrors selected entries of `~/.claude/` directly:
+  `config/CLAUDE.md` is `~/.claude/CLAUDE.md`, `config/settings.json` is
+  `~/.claude/settings.json`, and so on. Every file restores to `~/.claude/`
+  plus its relative path.
 
 ## Setup (`setup`, or first run when unconfigured)
 
@@ -147,9 +153,23 @@ and exit cleanly instead of starting setup.
      command substitution: some environments hook or proxy grep and return
      empty output there, which silently skips every note. Skip paths that no
      longer exist; never edit the user's index, sources are read-only. If the
-     index does not exist, skip the handoff half entirely and silently.
+     index does not exist, skip the handoff half entirely and silently;
+   - **archived handoffs**, which the index no longer lists by design:
+     `~/.claude/handoff-archive/` and any `handoff-archive/` folder sitting
+     beside a note copied above, each at its home-relative place in the
+     `handoffs/` tree;
+   - **config**: from `~/.claude/`, into `config/`, when present:
+     `CLAUDE.md` plus any file it `@`-references beside it (for example
+     `RTK.md`), `settings.json`, `keybindings.json`, and the `commands/`,
+     `skills/`, and `agents/` directories if non-empty. Before including
+     `settings.json`, scan its values for secret-looking content (names like
+     token, key, secret, or long opaque strings in `env`); if anything looks
+     like a credential, exclude the file, say so in the report, and carry on.
+     **Never** copy `~/.claude.json` (it holds OAuth tokens), transcripts,
+     history, caches, or the `plugins/` directory (reinstallable, and
+     `settings.json` records which plugins were enabled).
 4. Write `manifest.json` (hostname, ISO timestamp, the source paths mirrored,
-   store, handoff, and plan counts). If `git status --porcelain` then shows no
+   store, handoff, plan, and config counts). If `git status --porcelain` then shows no
    changes beyond the manifest's timestamp, report "no changes since last
    backup" and reset the tree; do not open an empty PR.
 5. Land it:
@@ -228,10 +248,11 @@ deletes** anything that exists only locally.
    - **File only in the backup**: restore it (it cannot clobber anything).
    - **File only local**: keep it untouched; restore never deletes.
    - **File in both, content differs**: a **conflict**; goes to the user.
-   Handoffs and plans get the same treatment: every file under `handoffs/`
-   maps to `~/` plus its relative path (per the layout section), `plans/`
-   maps to `~/.claude/plans/`, wholesale where the target is absent, conflict
-   where it exists and differs. Store targets are rebuilt as
+   Handoffs, plans, and config get the same treatment: every file under
+   `handoffs/` maps to `~/` plus its relative path (per the layout section),
+   `plans/` maps to `~/.claude/plans/`, `config/` maps to `~/.claude/`,
+   wholesale where the target is absent, conflict where it exists and
+   differs. Store targets are rebuilt as
    `~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/`.
 4. Present the plan in one compact summary: stores restored wholesale, files
    added, identical files skipped (count only), and the conflicts with a
@@ -251,8 +272,8 @@ rsync -a <name>/machines/<hostname>/memories/<project>/ ~/.claude/projects/$(ech
 ```
 
 Repeat per store; every file under `machines/<hostname>/handoffs/` goes back
-to `~/` plus its relative path (the index included), and `plans/` goes back
-to `~/.claude/plans/`.
+to `~/` plus its relative path (the index included), `plans/` goes back to
+`~/.claude/plans/`, and `config/` goes back to `~/.claude/`.
 
 ## Notes
 
