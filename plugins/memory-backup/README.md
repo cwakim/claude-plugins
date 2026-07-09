@@ -91,6 +91,15 @@ uses the absolute `claude` path, which `command -v claude` resolves here):
 cd ~ && "$(command -v claude)" -p "/memory-backup:backup" --allowedTools "Read,Glob,Grep,Write,Bash"
 ```
 
+With no `--model` flag (as above, and as the cron line runs it), the backup
+uses your global default model (`model` in `~/.claude/settings.json`, or
+Claude Code's built-in default if that key is unset). Pass `--model` to pin
+it explicitly instead:
+
+```bash
+cd ~ && "$(command -v claude)" -p "/memory-backup:backup" --allowedTools "Read,Glob,Grep,Write,Bash" --model sonnet
+```
+
 Useful as a manual push after a heavy session, or to debug a failing cron
 run in the foreground (scheduled runs log to
 `~/.claude/memory-backup/.cron.log`).
