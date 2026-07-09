@@ -1,9 +1,10 @@
 # memory-backup
 
 Off-machine durability for Claude Code's machine-local state. One command,
-`/backup`, mirrors every per-project memory store and every live handoff note
-into a staging clone and pushes it to a **private** GitHub repo, landing each
-run as a pull request that is squash-merged immediately. Set it up once, then
+`/backup`, mirrors every per-project memory store, every live handoff note,
+and the plans directory into a staging clone and pushes it to a **private**
+GitHub repo, landing each run as a pull request that is squash-merged
+immediately. Set it up once, then
 run it by hand or from a weekly cron.
 
 ## Why
@@ -11,8 +12,9 @@ run it by hand or from a weekly cron.
 Claude Code's persistent memory lives in exactly one place: this machine, one
 directory per project under `~/.claude/projects/<slug>/memory/`. Handoff notes
 are scattered across project repos and are often gitignored; the handoff index
-lives outside any repo. None of it is reproducible: it is distilled judgment,
-decisions, and context accumulated across sessions. A dead disk loses all of
+and the plan documents in `~/.claude/plans/` live outside any repo. None of it
+is reproducible: it is distilled judgment, decisions, and context accumulated
+across sessions. A dead disk loses all of
 it at once, and nothing else backs it up.
 
 This plugin exists for that single failure and stays deliberately narrow:
@@ -83,12 +85,20 @@ Three things to know before scheduling:
 
 ```text
 machines/<hostname>/
-  manifest.json               # hostname, timestamp, source paths, counts
-  projects/<slug>/memory/...  # every non-empty memory store on the machine
+  manifest.json                          # hostname, timestamp, source paths, counts
+  memories/
+    sites-personal/...                   # every non-empty memory store, named by
+    sites-claude-plugins/...             # its project slug minus the home prefix
   handoffs/
-    handoff-index.md          # the handoff index, if one exists
-    <path-slug>.md            # each live note the index points to
+    .claude/handoff-index.md             # the handoff index, if one exists
+    sites/personal/.claude/handoff.md    # each live note, at its home-relative path
+  plans/...                              # mirror of ~/.claude/plans/
 ```
+
+Both trees strip the home prefix, so names stay short, the repo is browsable
+by project, and every restore target derives from the name alone (`~/` plus
+the relative path for handoffs; the store slug is rebuilt from the current
+machine's home, which also makes mirrors portable across usernames).
 
 Handoff notes are produced by the session-continuity plugin, but there is no
 dependency: `/backup` reads `~/.claude/handoff-index.md` as a plain file if it
@@ -122,9 +132,11 @@ If there are no conflicts the plan applies without asking. The report lists
 what was restored, added, resolved each way, and skipped as identical.
 
 For a machine without this plugin, the manual fallback is a plain
-`git clone` plus `rsync` of `machines/<hostname>/projects/<slug>/memory/`
-back into `~/.claude/projects/<slug>/memory/`; the backup repo's own README
-carries these steps, so they survive even if this machine does not.
+`git clone` plus `rsync` of `machines/<hostname>/memories/<project>/` back
+into `~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/`, handoff
+files back to `~/` plus their relative path, and `plans/` back to
+`~/.claude/plans/`; the backup repo's own README carries these steps, so they
+survive even if this machine does not.
 
 ## Safety guarantees
 

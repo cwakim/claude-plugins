@@ -29,8 +29,8 @@
         {
             "name": "memory-backup",
             "source": "./plugins/memory-backup",
-            "description": "Back up Claude Code's machine-local state (/backup): mirror every per-project memory store and live handoff note to a private GitHub repo, one squash-merged PR per run. Repo visibility verified before every push, refused if public. Diff-aware /backup restore fills empty stores wholesale and asks per conflicting file; optional weekly cron.",
-            "version": "0.1.0"
+            "description": "Back up Claude Code's machine-local state (/backup): mirror every per-project memory store, live handoff note, and plan document to a private GitHub repo, one squash-merged PR per run. Repo visibility verified before every push, refused if public. Diff-aware /backup restore fills empty targets wholesale and asks per conflicting file; optional weekly cron.",
+            "version": "0.2.0"
         }
     ]
 }

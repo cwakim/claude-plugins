@@ -6,7 +6,8 @@ description: Back up every per-project memory store and live handoff note to a p
 
 Claude Code's persistent memory lives only on this machine, one store per
 project under `~/.claude/projects/<slug>/memory/`. A dead disk loses all of it
-at once. This command mirrors every store, plus the handoff notes tracked in
+at once. This command mirrors every store, the plan documents in
+`~/.claude/plans/`, and the handoff notes tracked in
 `~/.claude/handoff-index.md` when that index exists (it is written by the
 session-continuity plugin, but this command does not depend on it: no index
 just means no handoffs to back up), into a staging git repo and pushes each
@@ -50,17 +51,30 @@ out of scope):
 ```text
 machines/<hostname>/
   manifest.json               # hostname, ISO timestamp, source paths, counts
-  projects/<slug>/memory/...  # mirror of each non-empty memory store
-  handoffs/
-    handoff-index.md          # copy of ~/.claude/handoff-index.md
-    <path-slug>.md            # each live note the index points to
+  memories/<project>/...      # mirror of each non-empty memory store
+  handoffs/...                # home-relative tree: index + each live note
+  plans/...                   # mirror of ~/.claude/plans/, if non-empty
 README.md                     # what this repo is + restore instructions
 .gitignore                    # ignores .cron.log
 .cron.log                     # output of scheduled runs (untracked)
 ```
 
-`<hostname>` is `hostname -s`. `<path-slug>` is the note's absolute path with
-`/` replaced by `-`, the same convention as memory slugs.
+`<hostname>` is `hostname -s`. Both trees strip the home prefix so names stay
+short and restore derives every target from the name alone, with no lookup
+table:
+
+- `<project>` is the store's slug minus the home prefix: the slug for
+  `~/sites/personal` is `-Users-charbelwakim-sites-personal`, mirrored as
+  `memories/sites-personal/`. The live slug is rebuilt at restore time as
+  `$(echo ~ | tr '/' '-')-<project>`, which also makes mirrors portable to a
+  machine with a different username. A store whose project lives outside the
+  home directory keeps its full slug.
+- `handoffs/` mirrors home-relative paths as real folders:
+  `~/sites/personal/.claude/handoff.md` is stored at
+  `handoffs/sites/personal/.claude/handoff.md`, and the index at
+  `handoffs/.claude/handoff-index.md`. Every file restores to `~/` plus its
+  relative path. A note outside the home directory keeps its full path
+  under `handoffs/`.
 
 ## Setup (`setup`, or first run when unconfigured)
 
@@ -86,7 +100,11 @@ README.md                     # what this repo is + restore instructions
    exist yet, and the classic protection API needs the branch to exist first.
 5. Now apply the repo settings:
    - `gh repo edit <owner/name> --delete-branch-on-merge`
-   - Branch protection on `main` requiring a PR with zero approvals:
+   - Branch protection on `main` requiring a PR with zero approvals. This is
+     **best-effort**: GitHub only allows branch protection on private repos
+     with a Pro plan, so a free-plan account gets HTTP 403 here. Do not fail
+     setup on that; explain that protection is unenforced and that the PR
+     flow is upheld by this command's own discipline instead.
      ```bash
      gh api -X PUT repos/<owner>/<name>/branches/main/protection \
        --input - <<'EOF'
@@ -116,16 +134,22 @@ and exit cleanly instead of starting setup.
    stop cleanly; never resolve with force.
 3. Mirror the sources into `machines/<hostname>/` with `rsync -a --delete`:
    - every `~/.claude/projects/*/memory/` directory that contains at least one
-     file, each into `projects/<slug>/memory/`;
+     file, each into `memories/<project>/` (slug minus home prefix, per the
+     layout section);
    - remove mirrored stores whose source directory no longer exists or is
      empty (the mirror tracks reality; git history keeps the old contents);
-   - if `~/.claude/handoff-index.md` exists: copy it into
-     `handoffs/handoff-index.md`, plus every live path it references into
-     `handoffs/<path-slug>.md`. Skip paths that no longer exist; never edit
-     the user's index, sources are read-only. If the index does not exist,
-     skip the handoff half entirely and silently.
+   - `~/.claude/plans/` into `plans/`, if it exists and is non-empty;
+   - if `~/.claude/handoff-index.md` exists: copy it and every live path it
+     references into the home-relative tree under `handoffs/` (the index
+     lands at `handoffs/.claude/handoff-index.md`). Extract those paths
+     deterministically (a
+     `python3` one-liner over the index), **not** via shell `grep` inside
+     command substitution: some environments hook or proxy grep and return
+     empty output there, which silently skips every note. Skip paths that no
+     longer exist; never edit the user's index, sources are read-only. If the
+     index does not exist, skip the handoff half entirely and silently.
 4. Write `manifest.json` (hostname, ISO timestamp, the source paths mirrored,
-   store and handoff counts). If `git status --porcelain` then shows no
+   store, handoff, and plan counts). If `git status --porcelain` then shows no
    changes beyond the manifest's timestamp, report "no changes since last
    backup" and reset the tree; do not open an empty PR.
 5. Land it:
@@ -204,9 +228,11 @@ deletes** anything that exists only locally.
    - **File only in the backup**: restore it (it cannot clobber anything).
    - **File only local**: keep it untouched; restore never deletes.
    - **File in both, content differs**: a **conflict**; goes to the user.
-   Handoffs get the same treatment: the index and each note are restored to
-   the paths recorded in the mirrored `handoff-index.md`, wholesale where the
-   target is absent, conflict where it exists and differs.
+   Handoffs and plans get the same treatment: every file under `handoffs/`
+   maps to `~/` plus its relative path (per the layout section), `plans/`
+   maps to `~/.claude/plans/`, wholesale where the target is absent, conflict
+   where it exists and differs. Store targets are rebuilt as
+   `~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/`.
 4. Present the plan in one compact summary: stores restored wholesale, files
    added, identical files skipped (count only), and the conflicts with a
    short per-file diff description (which side is newer, what changed). Then
@@ -221,11 +247,12 @@ backup repo's own README at setup):
 
 ```bash
 git clone git@github.com:<owner>/<name>.git
-rsync -a <name>/machines/<hostname>/projects/<slug>/memory/ ~/.claude/projects/<slug>/memory/
+rsync -a <name>/machines/<hostname>/memories/<project>/ ~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/
 ```
 
-Repeat per store; handoff notes in `machines/<hostname>/handoffs/` go back to
-the paths recorded in the copied `handoff-index.md`.
+Repeat per store; every file under `machines/<hostname>/handoffs/` goes back
+to `~/` plus its relative path (the index included), and `plans/` goes back
+to `~/.claude/plans/`.
 
 ## Notes
 
