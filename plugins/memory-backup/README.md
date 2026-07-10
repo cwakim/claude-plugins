@@ -30,6 +30,11 @@ This plugin exists for that single failure and stays deliberately narrow:
 - **Private, verified on every push.** Memories hold personal and
   work-sensitive content. The run checks the repo is still private before
   every push and refuses a public repo with no override.
+- **Secrets stay home.** Every mirrored file is secret-scanned before it is
+  committed. Interactive runs ask you per finding; unattended runs redact
+  the value in the mirrored copy and flag it loudly, so the file is still
+  backed up but the credential never leaves the machine. See Sensitive
+  content below.
 - **Restore never clobbers.** `/backup restore` fills empty targets wholesale,
   but where local content already exists it diffs file by file: identical
   files are skipped without a question, local-only files are never deleted,
@@ -109,6 +114,7 @@ run in the foreground (scheduled runs log to
 ```text
 machines/<hostname>/
   manifest.json                          # hostname, timestamp, source paths, counts
+  .redact-allow                          # hashes of scan findings you approved as-is
   memories/
     sites-personal/...                   # every non-empty memory store, named by
     sites-claude-plugins/...             # its project slug minus the home prefix
@@ -119,7 +125,7 @@ machines/<hostname>/
   plans/...                              # mirror of ~/.claude/plans/
   config/                                # selected hand-written ~/.claude/ files:
     CLAUDE.md                            # global instructions + @-referenced files
-    settings.json                        # hooks, plugins, marketplaces (secret-scanned)
+    settings.json                        # hooks, plugins, marketplaces
     ...                                  # keybindings.json, commands/, skills/, agents/
 ```
 
@@ -136,13 +142,47 @@ so an index-driven copy alone would silently miss them.
 
 Deliberately excluded: `~/.claude.json` (holds OAuth tokens; never pushed,
 even to a private repo), transcripts, history, caches, and installed plugins
-(reinstallable; `settings.json` records which were enabled). If
-`settings.json` itself contains anything credential-shaped, it is excluded
-from that run and the report says so.
+(reinstallable; `settings.json` records which were enabled).
 
 The staging clone lives at `~/.claude/memory-backup/`; that clone existing
 with an origin remote *is* the configuration. Deleting it deconfigures the
 plugin without touching the GitHub repo.
+
+## Sensitive content
+
+The private repo is the boundary for personal and work-sensitive prose. It
+is **not** a safe place for credentials: a private repo is only as secure as
+your GitHub account, every token with repo scope on every machine, and every
+third-party app you have granted access, so a secret that reaches any remote
+repo should be treated as compromised. `/backup` therefore keeps secrets
+from leaving the machine at all:
+
+- Every mirrored text file is **secret-scanned before it is committed**:
+  memories, handoffs, plans, and config alike. Anything credential-shaped is
+  flagged on the tiniest suspicion: token/key/secret/password assignments,
+  known prefixes such as `ghp_`, `sk-`, or `AKIA`, private key blocks, long
+  opaque strings.
+- **Interactive runs ask**, in one batched prompt, per finding: **include**
+  it (a false positive; its hash is remembered in a committed allowlist so
+  you are never asked about it again), **omit** the file from the run, or
+  **redact** the value.
+- **Unattended runs never ask and never leak**: the value is replaced with a
+  fixed `[REDACTED:<reason>]` marker in the mirrored copy, the file is
+  committed, and the run warns loudly in the report, the PR body, and the
+  cron log. The file is backed up; the secret stays home. The marker is
+  deterministic on purpose, so an unchanged source never shows up as a new
+  diff.
+- Redaction touches **only the mirrored copy**. Your memories, handoffs, and
+  config files are never edited. A redacted file restores with its markers
+  in place; recover the real value from the credential's issuer, not the
+  backup.
+- `~/.claude.json` never goes through any of this: it is excluded outright,
+  always.
+
+If a real secret does reach the repo anyway, **rotate it**. Deleting it from
+the source removes it from the repo tip on the next run, but git history
+keeps every pushed version, and purging history is against this plugin's own
+invariants (history is the archive; never force-push).
 
 ## Restore
 
@@ -187,6 +227,9 @@ README carries these steps, so they survive even if this machine does not.
   ever written by an explicit `/backup restore`.
 - Restore never deletes a local-only file and never overwrites a differing
   file without you choosing it; identical files are never even asked about.
+- Every mirrored file is secret-scanned before commit; a headless run
+  redacts and flags rather than leaking a credential or silently dropping a
+  file, so the backup is never silently incomplete.
 - Never force-pushes; touches only `main` and its own `backup/*` branches.
 - Unconfigured headless runs log and exit cleanly instead of prompting.
 
