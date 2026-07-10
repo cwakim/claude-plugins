@@ -68,6 +68,7 @@ exactly what leaves the machine.
 /backup               # mirror, commit, PR, squash-merge; "no changes" is a no-op
 /backup status        # config, repo visibility, when the last backup landed
 /backup restore       # copy back from the repo: fill what is empty, ask on conflicts
+/backup restore <path> # same, but from a zip (or its extracted folder) instead of GitHub
 ```
 
 ### Automated (opt-in)
@@ -92,6 +93,31 @@ Four things to know before scheduling:
   Write,Bash"` in the cron line), because nobody is there to click through
   permission prompts. The schedule step shows you the exact line and offers a
   foreground smoke test before trusting it to cron.
+
+### Portable archive (no GitHub required)
+
+```text
+/backup zip <path>      # dated zip of everything a backup would mirror
+```
+
+For a USB copy, an air-gapped machine, or a one-off snapshot before wiping
+a laptop. No repo, no `gh`, no network, and no prior `/backup setup`
+needed. Every run asks first whether to secret-scan before writing the
+archive: **scan** runs the same check a GitHub backup does (reusing this
+machine's `.redact-allow` if one already exists, without writing back to
+it), **skip** copies everything as-is with one loud warning that the
+archive may then hold credentials verbatim and is only as safe as `<path>`
+itself. The result lands at
+`memory-backup-<hostname>-<YYYY-MM-DD-HHMM>.zip`. Restore it with
+`/backup restore <path>` (see Restore below), pointed at the zip or its
+extracted folder — the same diff-aware, conflict-batched restore as the
+GitHub mirror, not the raw manual fallback.
+
+Zip is **interactive-only, deliberately** — no cron, no headless mode.
+Unlike a recurring GitHub backup, which needs an unattended answer because
+nobody is around to ask it weekly, zip only ever runs because someone is at
+this machine right now, choosing a destination path. There's nothing to
+schedule about that, so the scan question above is always asked, every run.
 
 You can also run the same headless backup yourself at any time, without
 cron, from any terminal; this is exactly what the cron job executes (cron
@@ -190,6 +216,10 @@ from leaving the machine at all:
 - `~/.claude.json` never goes through any of this: it is excluded outright,
   always.
 
+This all applies to the GitHub mirror, where scanning is mandatory. A zip
+export (see Portable archive above) asks each run whether to scan at all,
+since it never leaves the machine on its own the way a push does.
+
 If a real secret does reach the repo anyway, **rotate it**. Deleting it from
 the source removes it from the repo tip on the next run, but git history
 keeps every pushed version, and purging history is against this plugin's own
@@ -198,12 +228,16 @@ invariants (history is the archive; never force-push).
 ## Restore
 
 ```text
-/backup restore
+/backup restore         # from the configured GitHub mirror
+/backup restore <path>  # from a zip made by `zip <path>`, or its extracted folder
 ```
 
-On a fresh machine it clones the backup repo (asking for `owner/name`) and,
-if the hostname is new, asks which machine's mirror to restore from. Then it
-compares mirror and live targets and builds one plan:
+With no `<path>`, on a fresh machine it clones the backup repo (asking for
+`owner/name`); with a `<path>`, it reads that zip or folder directly, no
+GitHub, no `gh`, no network. Either way, if the hostname is new (a
+replacement machine, or a zip made on a different laptop) it asks which
+machine's mirror to restore from, then compares mirror and live targets and
+builds one plan, identically regardless of source:
 
 - A store or handoff target that is **missing or empty** is restored
   wholesale, no questions asked.
@@ -216,14 +250,17 @@ compares mirror and live targets and builds one plan:
   version, in one batched prompt, keeping the local version for the rest.
 
 If there are no conflicts the plan applies without asking. The report lists
-what was restored, added, resolved each way, and skipped as identical.
+what was restored, added, resolved each way, and skipped as identical, and
+if the source was a zip made with scanning skipped (`manifest.json`'s
+`"scanned": false`), says so plainly: those files were never checked.
 
-For a machine without this plugin, the manual fallback is a plain
-`git clone` plus `rsync` of `machines/<hostname>/memories/<project>/` back
-into `~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/`, handoff
-files back to `~/` plus their relative path, `plans/` back to
-`~/.claude/plans/`, and `config/` back to `~/.claude/`; the backup repo's own
-README carries these steps, so they survive even if this machine does not.
+For a machine without this plugin at all (so no `/backup restore` to run),
+the manual fallback is a plain `git clone` plus `rsync` of
+`machines/<hostname>/memories/<project>/` back into
+`~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/`, handoff files
+back to `~/` plus their relative path, `plans/` back to `~/.claude/plans/`,
+and `config/` back to `~/.claude/`; the backup repo's own README carries
+these steps, so they survive even if this machine does not.
 
 ## Safety guarantees
 
@@ -234,13 +271,16 @@ README carries these steps, so they survive even if this machine does not.
   visibly in that backup's PR diff; git history keeps every version for
   recovery. Deleted means deleted at the tip, so restore does not resurrect
   what you removed on purpose.
-- Backup runs write only to `~/.claude/memory-backup/`; live stores are only
-  ever written by an explicit `/backup restore`.
+- A backup run writes only to `~/.claude/memory-backup/`; a zip run writes
+  only to the `<path>` you give it. Live stores are only ever written by an
+  explicit `/backup restore`.
 - Restore never deletes a local-only file and never overwrites a differing
   file without you choosing it; identical files are never even asked about.
-- Every mirrored file is secret-scanned before commit; a headless run
-  redacts and flags rather than leaking a credential or silently dropping a
-  file, so the backup is never silently incomplete.
+- Every file mirrored to GitHub is secret-scanned before commit; a headless
+  run redacts and flags rather than leaking a credential or silently
+  dropping a file, so the backup is never silently incomplete. A zip asks
+  each run whether to scan at all, and says so loudly (in the archive and
+  the report) whenever scanning was skipped.
 - Never force-pushes; touches only `main` and its own `backup/*` branches.
 - Unconfigured headless runs log and exit cleanly instead of prompting.
 
@@ -254,9 +294,12 @@ Planned, not built:
   nothing is deleted. Handoff notes are keyed to absolute paths, which can
   differ between machines; merge will have to reconcile that mapping, which
   is part of why it is its own version.
-- **v3 `--zip <path>`**: a dated archive you can carry.
-- **v4 object storage**: S3, GCS, Alibaba OSS.
-- **v5 Google Drive**: likely via rclone.
+- **v3 object storage**: S3, GCS, Alibaba OSS.
+- **v4 Google Drive**: likely via rclone.
+
+Shipped out of order: `zip` (portable archive) landed ahead of `merge`
+because it needed no cross-machine path reconciliation — see Portable
+archive above.
 
 ## Install
 
