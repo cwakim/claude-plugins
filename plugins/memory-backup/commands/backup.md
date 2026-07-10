@@ -52,6 +52,7 @@ out of scope):
 ```text
 machines/<hostname>/
   manifest.json               # hostname, ISO timestamp, source paths, counts
+  .redact-allow               # sha256 hashes of scan findings approved as-is
   memories/<project>/...      # mirror of each non-empty memory store
   handoffs/...                # home-relative tree: index + live notes + archives
   plans/...                   # mirror of ~/.claude/plans/, if non-empty
@@ -161,13 +162,12 @@ and exit cleanly instead of starting setup.
    - **config**: from `~/.claude/`, into `config/`, when present:
      `CLAUDE.md` plus any file it `@`-references beside it (for example
      `RTK.md`), `settings.json`, `keybindings.json`, and the `commands/`,
-     `skills/`, and `agents/` directories if non-empty. Before including
-     `settings.json`, scan its values for secret-looking content (names like
-     token, key, secret, or long opaque strings in `env`); if anything looks
-     like a credential, exclude the file, say so in the report, and carry on.
-     **Never** copy `~/.claude.json` (it holds OAuth tokens), transcripts,
-     history, caches, or the `plugins/` directory (reinstallable, and
-     `settings.json` records which plugins were enabled);
+     `skills/`, and `agents/` directories if non-empty. `settings.json` gets
+     no special credential handling here: like every other mirrored file, it
+     goes through the secret scan in the next step. **Never** copy
+     `~/.claude.json` (it holds OAuth tokens), transcripts, history, caches,
+     or the `plugins/` directory (reinstallable, and `settings.json` records
+     which plugins were enabled);
    - **deletions propagate in every tree.** The `handoffs/` and `config/`
      trees are file-by-file copies, so after copying, remove any mirrored
      file whose source no longer exists (the memory and plan trees already
@@ -176,11 +176,44 @@ and exit cleanly instead of starting setup.
      on the next run, visibly in the PR diff, and git history remains the
      archive it can be recovered from. Without this, restore would resurrect
      deliberately deleted handoffs and config files.
-4. Write `manifest.json` (hostname, ISO timestamp, the source paths mirrored,
-   store, handoff, plan, and config counts). If `git status --porcelain` then shows no
+4. **Scan every mirrored text file for secrets** before anything is
+   committed: memories, handoffs, plans, and config alike. Flag anything
+   credential-shaped, on the tiniest suspicion: values assigned to names
+   like token, key, secret, or password; known prefixes (`ghp_`,
+   `github_pat_`, `sk-`, `AKIA`, `xox`, `-----BEGIN ... PRIVATE KEY-----`);
+   long high-entropy opaque strings. Skip any match whose sha256 hash is
+   listed in `machines/<hostname>/.redact-allow` (approved false positives,
+   see below).
+   - **Interactive run:** present all findings in one batched
+     `AskUserQuestion` (file, the flagged snippet, why it was flagged),
+     three choices per finding:
+     - **include** as-is: it is a false positive; append its sha256 to
+       `.redact-allow` so no future run, interactive or headless, flags it
+       again;
+     - **omit** the file from this run: the previously mirrored version, if
+       any, stays at the tip (report the staleness; do not delete it);
+     - **redact** the value in the mirrored copy.
+   - **Headless run (cron):** never ask, never omit, never leak: **redact
+     automatically and commit the file**, then warn loudly, in the run
+     report, the PR body, and the cron log, naming each file and the reason,
+     so the next interactive look can clean the source or allowlist a false
+     positive.
+   - Redaction replaces only the matched value, and only in the mirrored
+     copy (sources stay read-only, as ever), with the fixed marker
+     `[REDACTED:<reason>]`, for example `[REDACTED:github-token]`. The
+     marker is deliberately deterministic: an unchanged source mirrors
+     identically on the next run, so redactions never defeat the "no changes
+     since last backup" check and never churn PR diffs. Never substitute
+     random look-alike values; a redaction must read as a redaction.
+   - `.redact-allow` holds one sha256 hash per approved string and is
+     committed with the mirror: hashes of non-secrets are safe to track, and
+     the decisions survive a fresh clone.
+5. Write `manifest.json` (hostname, ISO timestamp, the source paths mirrored,
+   store, handoff, plan, and config counts, plus counts of redactions and
+   omitted files from the scan). If `git status --porcelain` then shows no
    changes beyond the manifest's timestamp, report "no changes since last
    backup" and reset the tree; do not open an empty PR.
-5. Land it:
+6. Land it:
    ```bash
    git checkout -b backup/<hostname>-<YYYY-MM-DD-HHMM>
    git add -A && git commit -m "backup(<hostname>): <YYYY-MM-DD HH:MM>, <N> files changed"
@@ -191,8 +224,9 @@ and exit cleanly instead of starting setup.
    ```
    If the merge fails, say so explicitly and leave the PR link: an unmerged
    PR is **not** a completed backup.
-6. Report: the repo, the merged PR link, files added/changed/deleted per
-   store, and how long it took.
+7. Report: the repo, the merged PR link, files added/changed/deleted per
+   store, every redaction and omission from the secret scan (loudly, never
+   buried), and how long it took.
 
 ## Status (`status`)
 
@@ -273,7 +307,11 @@ deletes** anything that exists only locally.
    the backup version for these", keep local for the rest), never one prompt
    per file. If there are no conflicts, apply without asking.
 5. Apply, then report: stores restored, files added, conflicts resolved each
-   way, files skipped as identical, local-only files left alone.
+   way, files skipped as identical, local-only files left alone. A file that
+   was redacted at backup time restores with its `[REDACTED:<reason>]`
+   markers in place: the secret itself never reached the repo, so recover
+   the real value from the live source or the credential's issuer, not from
+   the backup.
 
 **Manual fallback** (a machine without this plugin; also seeded into the
 backup repo's own README at setup):
@@ -291,6 +329,15 @@ to `~/` plus its relative path (the index included), `plans/` goes back to
 
 - **Private, verified on every push.** The visibility check runs before each
   push, not just at setup, and there is no override in v1.
+- **Secrets stay home; never silently incomplete.** The private repo is the
+  boundary for personal prose, not a safe place for credentials: a secret
+  pushed to any remote repo should be treated as compromised. The scan keeps
+  secrets from leaving at all; when it fires headlessly the file is still
+  backed up, redacted and loudly flagged, never silently dropped. If a real
+  secret does reach the repo anyway, **rotate it**: deleting it from the
+  source removes it from the tip on the next run, but git history keeps
+  every pushed version, and purging history is against this command's own
+  invariants (history is the archive; never force-push).
 - **Backup runs never write to sources.** Outside of Restore mode, the only
   directory this command writes to is `~/.claude/memory-backup/`.
 - **Restore never destroys.** It only runs when invoked, never deletes

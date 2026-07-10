@@ -1,7 +1,7 @@
 {
     "name": "memory-backup",
-    "description": "Back up Claude Code's machine-local state (/backup): mirror every per-project memory store, handoff note (live and archived), plan document, and the hand-written global config to a private GitHub repo, one squash-merged PR per run. Repo visibility verified before every push, refused if public; secrets never included. Diff-aware /backup restore fills empty targets wholesale and asks per conflicting file; optional cron, cadence is your call (weekly default).",
-    "version": "0.3.2",
+    "description": "Back up Claude Code's machine-local state (/backup): mirror every per-project memory store, handoff note (live and archived), plan document, and the hand-written global config to a private GitHub repo, one squash-merged PR per run. Repo visibility verified before every push, refused if public; every mirrored file secret-scanned before commit (interactive runs ask, cron redacts and flags loudly), credentials never leave the machine. Diff-aware /backup restore fills empty targets wholesale and asks per conflicting file; optional cron, cadence is your call (weekly default).",
+    "version": "0.4.0",
     "author": {
         "name": "Charbel Wakim",
         "email": "me@charbelwakim.com"
