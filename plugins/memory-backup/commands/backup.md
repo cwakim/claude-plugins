@@ -1,5 +1,5 @@
 ---
-description: Back up every per-project memory store and live handoff note to a private GitHub repo, landing each run as a PR that is squash-merged immediately.
+description: Back up every per-project memory store and live handoff note to a private GitHub repo, landing each run as a PR that is squash-merged immediately. Or export a portable zip archive with no GitHub required.
 ---
 
 # Memory Backup
@@ -33,11 +33,15 @@ choosing it. Identical files are never asked about.
   protections, clone the staging copy.
 - **`status`** reports the configuration, the remote repo and its visibility,
   and when the last backup landed. No changes.
-- **`restore`** copies stores and handoff notes from the backup repo back onto
-  this machine: wholesale where the target is empty, diff-and-ask where it is
-  not. See Restore mode.
+- **`restore [path]`** copies stores and handoff notes back onto this
+  machine: wholesale where the target is empty, diff-and-ask where it is
+  not. With no `<path>`, the source is the configured GitHub mirror; given a
+  `<path>` (a zip from `zip <path>`, or its already-extracted folder), the
+  source is that archive instead, no GitHub involved. See Restore mode.
 - **`schedule`** installs a local cron job that runs the backup on a cadence;
   **`unschedule`** removes it. See Schedule mode.
+- **`zip <path>`** writes a dated zip archive of everything a backup would
+  mirror to `<path>`, no GitHub, no `gh`, no network. See Zip mode.
 
 ## The staging repo
 
@@ -284,20 +288,38 @@ crontab -l 2>/dev/null | grep -v "# memory-backup" | crontab -
 6. Report the installed line and how to remove it (`unschedule`). Uninstalling
    the plugin does **not** remove the cron job; unschedule first.
 
-## Restore mode (`restore`)
+## Restore mode (`restore [path]`)
 
-Copies from the backup repo back onto this machine. Interactive and
+Copies from a backup source back onto this machine. Interactive and
 conservative: it adds and (only with consent) overwrites, and it **never
-deletes** anything that exists only locally.
+deletes** anything that exists only locally. Whichever source resolves
+below, restore only ever reads from it: it never writes back to the
+source, and never pushes anywhere.
 
-1. If `~/.claude/memory-backup/` is not configured, this is probably the
-   disaster-recovery path: ask for the backup repo (`owner/name`), verify it
-   exists, and clone it into place first. Otherwise `git pull --ff-only` so
-   the mirror is current. Restore never pushes.
-2. Pick the source machine: `machines/<hostname>/` for this host. If that
-   directory does not exist (a replacement machine with a new hostname), list
-   the machines present in the repo and ask which one to restore from.
-3. Build a restore plan by comparing the mirror against the live targets,
+### Resolve the source
+
+- **`<path>` given**: a zip made by `zip <path>`, or its already-extracted
+  folder. If `<path>` is a file (a `.zip`), extract it into a fresh temp
+  directory (`mktemp -d`) and use that as the source root; if it is
+  already a directory, use it directly. Verify the source root contains at
+  least one `machines/<hostname>/` subtree; if not, say so and stop. No
+  GitHub involved at all: no clone, no `gh`, no network, and no need for
+  `/backup setup` to have ever run.
+- **No `<path>`**: the configured GitHub mirror. If
+  `~/.claude/memory-backup/` is not configured, this is probably the
+  disaster-recovery path: ask for the backup repo (`owner/name`), verify it
+  exists, and clone it into place first. Otherwise `git pull --ff-only` so
+  the mirror is current.
+
+Every step below treats "the source root" as whichever of these resolved,
+identically — the plan, conflict handling, and report do not care whether
+it came from git or a zip.
+
+1. Pick the source machine: `machines/<hostname>/` for this host. If that
+   directory does not exist (a replacement machine with a new hostname, or
+   a zip made on a different laptop), list the machines present in the
+   source root and ask which one to restore from.
+2. Build a restore plan by comparing the mirror against the live targets,
    per file:
    - **Target store missing or empty** (no `~/.claude/projects/<slug>/memory/`
      or no files in it): restore the whole store wholesale, no questions.
@@ -316,21 +338,28 @@ deletes** anything that exists only locally.
    wholesale where the target is absent, conflict where it exists and
    differs. Store targets are rebuilt as
    `~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/`.
-4. Present the plan in one compact summary: stores restored wholesale, files
+3. Present the plan in one compact summary: stores restored wholesale, files
    added, identical files skipped (count only), and the conflicts with a
    short per-file diff description (which side is newer, what changed). Then
    resolve the conflicts via `AskUserQuestion`, batched (multi-select "take
    the backup version for these", keep local for the rest), never one prompt
    per file. If there are no conflicts, apply without asking.
-5. Apply, then report: stores restored, files added, conflicts resolved each
+4. Apply, then report: stores restored, files added, conflicts resolved each
    way, files skipped as identical, local-only files left alone. A file that
    was redacted at backup time restores with its `[REDACTED:<reason>]`
    markers in place: the secret itself never reached the repo, so recover
    the real value from the live source or the credential's issuer, not from
-   the backup.
+   the backup. If the source root's `manifest.json` records `"scanned":
+   false` (a zip made with scanning skipped), say so plainly in the report:
+   these files were never checked, backup or not. If `<path>` was a `.zip`
+   file, remove the temp extraction directory now that the restore is
+   done, and equally on an early stop (an invalid source, or the user
+   aborting); a `<path>` that was already a directory is left untouched,
+   since this run did not create it.
 
-**Manual fallback** (a machine without this plugin; also seeded into the
-backup repo's own README at setup):
+**Manual fallback** (a machine without this plugin at all, so no
+`/backup restore` to run; also seeded into the backup repo's own README at
+setup):
 
 ```bash
 git clone git@github.com:<owner>/<name>.git
@@ -340,6 +369,77 @@ rsync -a <name>/machines/<hostname>/memories/<project>/ ~/.claude/projects/$(ech
 Repeat per store; every file under `machines/<hostname>/handoffs/` goes back
 to `~/` plus its relative path (the index included), `plans/` goes back to
 `~/.claude/plans/`, and `config/` goes back to `~/.claude/`.
+
+## Zip mode (`zip <path>`)
+
+A portable, dated archive of everything a backup would mirror, without
+GitHub: no repo, no `gh`, no network. Useful for a USB copy, an air-gapped
+machine, or a one-off snapshot before wiping this laptop. Does not require
+`/backup setup` to have run.
+
+1. `<path>` is required and must be an existing directory (expand a leading
+   `~`); if it is missing or not a directory, say so and stop. There is no
+   default destination: writing an archive is a deliberate act.
+2. Ask via `AskUserQuestion`, every run, before touching anything: **scan
+   the mirrored files for secrets before writing the archive, or skip the
+   scan?**
+   - **Scan (recommended)**: same secret-scan behavior as a GitHub backup.
+   - **Skip**: copy everything as-is, no scanning, no redaction. Warn
+     plainly, once, before proceeding: the archive may then contain
+     credentials verbatim, and it is only as safe as `<path>` itself (a
+     bare USB stick or an unencrypted folder is not a private GitHub repo).
+   This choice is per-run and is never remembered; a zip made for quick,
+   local carrying is a different threat model than the one it makes
+   for someone who's about to hand `<path>` to another machine or drive.
+3. Build the same tree a backup run would, in a fresh temp directory
+   (`mktemp -d`), under `machines/<hostname>/` for parity with the GitHub
+   layout and the manual restore fallback: every non-empty
+   `~/.claude/projects/*/memory/` store into `memories/<project>/`;
+   `~/.claude/plans/`, if non-empty, into `plans/`; the handoff index and
+   every live path it references, plus archived handoffs, into `handoffs/`
+   (identical rules to Backup run step 3); the same selected `config/` files
+   from `~/.claude/`. Same exclusions as a backup: no `~/.claude.json`,
+   transcripts, history, caches, or `plugins/`.
+4. **If scanning was chosen**, scan every file for secrets, identical to
+   Backup run step 4. If
+   `~/.claude/memory-backup/machines/<hostname>/.redact-allow` exists (this
+   machine already runs GitHub backups), read it and skip re-asking about
+   already-approved hashes; zip never writes to that file, since an
+   `include` there is a permanent declaration for the GitHub mirror and a
+   zip is a separate, one-off artifact. For any new findings, ask
+   interactively (batched, same three choices) and write includes to a
+   `.redact-allow` bundled inside the archive itself, not the shared one, so
+   the archive documents its own decisions; omit or redact as usual. **If
+   scanning was skipped**, do nothing here — every file goes in as found.
+5. Write `manifest.json` at the archive root: hostname, ISO timestamp,
+   source paths, the same counts as a backup manifest, and `"scanned":
+   true`/`false` recording which choice step 2 made.
+6. Zip the temp directory into
+   `<path>/memory-backup-<hostname>-<YYYY-MM-DD-HHMM>.zip`, then remove the
+   temp directory.
+7. Report: the archive's full path and size, counts mirrored per store, and
+   whether the scan ran. If scanning ran: every redaction or omission
+   (loudly, same as a backup). If it was skipped: repeat the warning from
+   step 2 once more here, so it isn't just a prompt someone clicked past.
+
+Zip is a snapshot, not configuration: it never touches
+`~/.claude/memory-backup/` or the GitHub remote. Restore it with
+`/backup restore <path>`, pointed at the zip or its extracted folder — see
+Restore mode, which treats a zip source and the GitHub mirror identically.
+
+**Zip is interactive-only; there is no headless or cron mode for it, by
+design.** `/backup`'s headless path exists because a recurring GitHub
+backup has nobody around to ask each week, so it has to have an unattended
+answer (redact-and-flag). Zip has no such case: it only runs because a
+person is sitting at this machine, deciding on a destination `<path>` right
+now — a USB drive that's plugged in, a folder they're about to hand off, a
+laptop they're about to wipe. There is no scheduled version of "pick a path
+and hand it to someone" to automate, so there is no `--no-scan` flag or
+cron-safe default for the scan question either: it is always asked, every
+run. If `zip` is ever invoked with nobody to ask (for example from a
+non-interactive script), log the problem and exit cleanly rather than
+guessing an answer to the scan question — same as `/backup`'s unconfigured
+headless behavior.
 
 ## Notes
 
@@ -354,8 +454,9 @@ to `~/` plus its relative path (the index included), `plans/` goes back to
   source removes it from the tip on the next run, but git history keeps
   every pushed version, and purging history is against this command's own
   invariants (history is the archive; never force-push).
-- **Backup runs never write to sources.** Outside of Restore mode, the only
-  directory this command writes to is `~/.claude/memory-backup/`.
+- **Backup runs never write to sources.** Outside of Restore mode, a backup
+  run writes only to `~/.claude/memory-backup/`; a zip run writes only to
+  the `<path>` it was given (plus its own temp directory, cleaned up after).
 - **Restore never destroys.** It only runs when invoked, never deletes
   local-only files, never overwrites a differing file without the user
   choosing it, and never asks about identical ones.
@@ -366,6 +467,5 @@ to `~/` plus its relative path (the index included), `plans/` goes back to
   `backup/*` branches, and resolves nothing with force.
 - Roadmap (planned, not built): a `merge` command that combines two machines'
   mirrors so memories and handoff notes from two laptops can converge,
-  diff-aware with conflicts asked like restore (v2); `--zip <path>` for a dated archive you
-  can carry (v3); object storage targets such as S3, GCS, and Alibaba OSS
-  (v4); Google Drive via rclone (v5).
+  diff-aware with conflicts asked like restore (v2); object storage targets
+  such as S3, GCS, and Alibaba OSS (v3); Google Drive via rclone (v4).
