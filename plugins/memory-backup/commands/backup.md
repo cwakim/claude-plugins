@@ -33,11 +33,13 @@ choosing it. Identical files are never asked about.
   protections, clone the staging copy.
 - **`status`** reports the configuration, the remote repo and its visibility,
   and when the last backup landed. No changes.
-- **`restore [path]`** copies stores and handoff notes back onto this
-  machine: wholesale where the target is empty, diff-and-ask where it is
+- **`restore [--dry-run] [path]`** copies stores and handoff notes back onto
+  this machine: wholesale where the target is empty, diff-and-ask where it is
   not. With no `<path>`, the source is the configured GitHub mirror; given a
   `<path>` (a zip from `zip <path>`, or its already-extracted folder), the
-  source is that archive instead, no GitHub involved. See Restore mode.
+  source is that archive instead, no GitHub involved. `--dry-run` builds and
+  reports the full plan, then stops without applying anything. See Restore
+  mode.
 - **`schedule`** installs a local cron job that runs the backup on a cadence;
   **`unschedule`** removes it. See Schedule mode.
 - **`zip <path>`** writes a dated zip archive of everything a backup would
@@ -288,13 +290,17 @@ crontab -l 2>/dev/null | grep -v "# memory-backup" | crontab -
 6. Report the installed line and how to remove it (`unschedule`). Uninstalling
    the plugin does **not** remove the cron job; unschedule first.
 
-## Restore mode (`restore [path]`)
+## Restore mode (`restore [--dry-run] [path]`)
 
 Copies from a backup source back onto this machine. Interactive and
 conservative: it adds and (only with consent) overwrites, and it **never
 deletes** anything that exists only locally. Whichever source resolves
 below, restore only ever reads from it: it never writes back to the
-source, and never pushes anywhere.
+source, and never pushes anywhere. With `--dry-run` it goes exactly as far
+as the plan (step 3) and stops: nothing is applied, no question is asked,
+and any temp extraction directory is cleaned up. Useful for checking what a
+restore would do, especially against the GitHub mirror, which may be weeks
+ahead of or behind this machine.
 
 ### Resolve the source
 
@@ -322,7 +328,8 @@ it came from git or a zip.
 2. Build a restore plan by comparing the mirror against the live targets,
    per file:
    - **Target store missing or empty** (no `~/.claude/projects/<slug>/memory/`
-     or no files in it): restore the whole store wholesale, no questions.
+     or no files in it): restore the whole store wholesale, no per-file
+     questions (the single plan confirmation in step 3 still covers it).
    - **Identical files** (same content): skip silently; never ask about a
      file that would not change.
    - **File only in the backup**: restore it (it cannot clobber anything).
@@ -340,10 +347,17 @@ it came from git or a zip.
    `~/.claude/projects/$(echo ~ | tr '/' '-')-<project>/memory/`.
 3. Present the plan in one compact summary: stores restored wholesale, files
    added, identical files skipped (count only), and the conflicts with a
-   short per-file diff description (which side is newer, what changed). Then
-   resolve the conflicts via `AskUserQuestion`, batched (multi-select "take
-   the backup version for these", keep local for the rest), never one prompt
-   per file. If there are no conflicts, apply without asking.
+   short per-file diff description (which side is newer, what changed).
+   **With `--dry-run`, this plan is the result: report it and stop.**
+   Apply nothing, ask nothing, and clean up the temp extraction directory
+   if `<path>` was a zip. Otherwise resolve the conflicts via
+   `AskUserQuestion`, batched (multi-select "take the backup version for
+   these", keep local for the rest), never one prompt per file, then
+   confirm once before applying; when there are no conflicts, that single
+   confirmation is the only question. The plan is a checkpoint, not a
+   receipt: nothing is written before it is accepted. A plan with no
+   changes at all (everything identical) is just reported; there is
+   nothing to confirm.
 4. Apply, then report: stores restored, files added, conflicts resolved each
    way, files skipped as identical, local-only files left alone. A file that
    was redacted at backup time restores with its `[REDACTED:<reason>]`
@@ -459,7 +473,8 @@ headless behavior.
   the `<path>` it was given (plus its own temp directory, cleaned up after).
 - **Restore never destroys.** It only runs when invoked, never deletes
   local-only files, never overwrites a differing file without the user
-  choosing it, and never asks about identical ones.
+  choosing it, and never asks about identical ones. Nothing is applied
+  before the plan is confirmed; `--dry-run` reports the plan and stops.
 - **Backup, not sync.** Restore is a deliberate, interactive act, not a
   background merge; multi-machine sync is out of scope in v1 (a merge
   command is on the roadmap as v2).

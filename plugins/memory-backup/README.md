@@ -228,8 +228,9 @@ invariants (history is the archive; never force-push).
 ## Restore
 
 ```text
-/backup restore         # from the configured GitHub mirror
-/backup restore <path>  # from a zip made by `zip <path>`, or its extracted folder
+/backup restore                    # from the configured GitHub mirror
+/backup restore <path>             # from a zip made by `zip <path>`, or its extracted folder
+/backup restore --dry-run [path]   # plan only: show what a restore would do, touch nothing
 ```
 
 With no `<path>`, on a fresh machine it clones the backup repo (asking for
@@ -240,7 +241,7 @@ machine's mirror to restore from, then compares mirror and live targets and
 builds one plan, identically regardless of source:
 
 - A store or handoff target that is **missing or empty** is restored
-  wholesale, no questions asked.
+  wholesale, with no per-file questions.
 - **Identical files are skipped silently**; you are never asked about a file
   that would not change.
 - A file that exists **only in the backup** is restored; a file that exists
@@ -249,7 +250,13 @@ builds one plan, identically regardless of source:
   you see a short per-file diff summary and pick which files take the backup
   version, in one batched prompt, keeping the local version for the rest.
 
-If there are no conflicts the plan applies without asking. The report lists
+The plan is a checkpoint, not a receipt: nothing is written until you accept
+it. After the conflict prompt (or straight away, if there are none), restore
+asks once to apply the plan; a plan with no changes at all is just reported.
+With `--dry-run` it stops at the plan entirely: what would be restored
+wholesale, added, or conflict, and nothing else, so you can inspect a mirror
+(especially the GitHub one, which may be weeks ahead of or behind this
+machine) before committing to anything. The report lists
 what was restored, added, resolved each way, and skipped as identical, and
 if the source was a zip made with scanning skipped (`manifest.json`'s
 `"scanned": false`), says so plainly: those files were never checked.
@@ -276,6 +283,8 @@ these steps, so they survive even if this machine does not.
   explicit `/backup restore`.
 - Restore never deletes a local-only file and never overwrites a differing
   file without you choosing it; identical files are never even asked about.
+  Nothing is applied before the plan is confirmed, and `--dry-run` never
+  gets that far: it reports the plan and stops.
 - Every file mirrored to GitHub is secret-scanned before commit; a headless
   run redacts and flags rather than leaking a credential or silently
   dropping a file, so the backup is never silently incomplete. A zip asks
