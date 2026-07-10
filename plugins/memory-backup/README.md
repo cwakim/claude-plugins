@@ -77,8 +77,13 @@ exactly what leaves the machine.
 /backup unschedule    # remove it
 ```
 
-Three things to know before scheduling:
+Four things to know before scheduling:
 
+- **Run `/backup` interactively at least once first.** Cron resolves secret
+  scan findings on its own (it redacts and flags; it cannot ask), so let an
+  interactive run surface what the scan finds in *your* stores and make the
+  include/omit/redact calls yourself. Once the false positives are
+  allowlisted, cron runs quietly.
 - It is **local cron, not a cloud routine**, on purpose: the stores live on
   your machine and a scheduled cloud agent cannot read them.
 - Each scheduled run is a real headless Claude Code session and **consumes
@@ -163,9 +168,15 @@ from leaving the machine at all:
   known prefixes such as `ghp_`, `sk-`, or `AKIA`, private key blocks, long
   opaque strings.
 - **Interactive runs ask**, in one batched prompt, per finding: **include**
-  it (a false positive; its hash is remembered in a committed allowlist so
-  you are never asked about it again), **omit** the file from the run, or
-  **redact** the value.
+  it, **omit** the file from the run, or **redact** the value.
+- **Include is a permanent declaration, so treat it with respect.** Choosing
+  include means "this is not a secret": the value's hash goes into a
+  committed allowlist (`.redact-allow`), and every future run, interactive
+  or cron, pushes that value as-is wherever it appears, with no second
+  look. Include a real credential and cron will keep pushing it every week.
+  Only an interactive include can write to the allowlist; cron never does.
+  To revoke one, delete its line from `machines/<hostname>/.redact-allow`
+  and the next run flags the value again.
 - **Unattended runs never ask and never leak**: the value is replaced with a
   fixed `[REDACTED:<reason>]` marker in the mirrored copy, the file is
   committed, and the run warns loudly in the report, the PR body, and the
