@@ -184,12 +184,23 @@ and exit cleanly instead of starting setup.
    long high-entropy opaque strings. Skip any match whose sha256 hash is
    listed in `machines/<hostname>/.redact-allow` (approved false positives,
    see below).
+   **Enumerate the files with `os.walk` (or an explicitly hidden-aware
+   walk), never a bare `glob('**/*')`:** python's glob skips dot-directories
+   by default, and most handoff notes live under `.claude/` folders, so a
+   bare glob silently exempts exactly the files this scan most needs to
+   cover. The manifest counts in the next step have the same trap.
    - **Interactive run:** present all findings in one batched
      `AskUserQuestion` (file, the flagged snippet, why it was flagged),
      three choices per finding:
-     - **include** as-is: it is a false positive; append its sha256 to
-       `.redact-allow` so no future run, interactive or headless, flags it
-       again;
+     - **include** as-is: this declares the value **is not a secret**, and
+       the declaration is permanent and value-global: its sha256 goes into
+       `.redact-allow`, so every future run, interactive or headless,
+       pushes that value as-is wherever it appears, with no second look.
+       The prompt must say this plainly; never label include as merely
+       "skip this once". To revoke, delete the hash's line from
+       `.redact-allow` and the next run flags the value again. Only an
+       interactive include can write to the allowlist; headless runs never
+       do;
      - **omit** the file from this run: the previously mirrored version, if
        any, stays at the tip (report the staleness; do not delete it);
      - **redact** the value in the mirrored copy.
@@ -250,7 +261,12 @@ crontab -l 2>/dev/null | grep -v "# memory-backup" | crontab -
 
 1. Check for an existing entry (`crontab -l 2>/dev/null | grep
    "# memory-backup"`). If one exists, show it and ask whether to replace or
-   keep it.
+   keep it. If no backup has ever run interactively (no
+   `machines/<hostname>/` in the staging repo, or no `.redact-allow`
+   decisions yet), recommend one interactive `/backup` first: cron resolves
+   secret scan findings on its own (redact and flag, it cannot ask), so the
+   first pass over the stores should get the user's include/omit/redact
+   calls, not cron's defaults.
 2. Ask the cadence via `AskUserQuestion` (weekly is the sensible default for
    a backup; offer daily and monthly too).
 3. Resolve the absolute `claude` binary path (`command -v claude`): cron's
