@@ -11,12 +11,12 @@ A small personal marketplace of [Claude Code](https://claude.com/claude-code) pl
 
 ## Plugins
 
-| Plugin | What it does |
-|--------|--------------|
-| [session-continuity](plugins/session-continuity) | `/handoff` distills a conversation into a portable, human-readable snapshot, revising one living note in place instead of stacking dated entries, and closing with a ground-truth footer (branch, commit, session id). `/pickup` reads it back, verifies it against reality before acting, and finds threads by name across repos; `/pickup list` shows everything in flight. A PreCompact hook nudges a handoff before context goes lossy. A baton pass, not a context restore. |
-| [branch-cleanup](plugins/branch-cleanup) | `/cleanup` deletes branches already merged into a base branch, local and remote. Protects long-lived branches, never force-deletes, always confirms. |
-| [memory-gardener](plugins/memory-gardener) | `/garden` audits Claude Code's persistent memory for rot. Verifies stale claims against the repo itself, asks only what a human must answer, applies fixes through one confirmed docket. Nudges at session start when the store needs attention; `/garden schedule` automates the audit via local cron. |
-| [memory-backup](plugins/memory-backup) | `/backup` mirrors every memory store, handoff note (live and archived), plan document, and the hand-written global config on the machine to a private GitHub repo, one squash-merged PR per run. Privacy verified on every push; every file secret-scanned before commit (interactive runs ask, cron redacts and flags loudly, credentials never leave the machine). `/backup restore` fills empty targets wholesale and asks per conflicting file, from GitHub or from a zip, never deleting local content and never applying an unconfirmed plan (`--dry-run` previews only). `/backup zip <path>` exports the same mirror as a portable dated archive, no GitHub required, asking each run whether to secret-scan first. Cron optional, cadence is your call (weekly default). |
+| Plugin | Commands | What it does |
+|--------|----------|--------------|
+| [session-continuity](plugins/session-continuity) | `/handoff`<br>`/pickup` (+ `list`) | Distills a conversation into a portable, human-readable snapshot: one living note, revised in place, closed with a ground-truth footer (branch, commit, session id). Pickup reads it back, verifies it against reality before acting, and finds threads by name across repos; a PreCompact hook nudges a handoff before context goes lossy. A baton pass, not a context restore. |
+| [branch-cleanup](plugins/branch-cleanup) | `/cleanup` | Deletes branches already merged into a base branch, local and remote. Protects long-lived branches, never force-deletes, always confirms. |
+| [memory-gardener](plugins/memory-gardener) | `/garden`<br>`/garden schedule` | Audits Claude Code's persistent memory for rot: verifies stale claims against the repo itself, asks only what a human must answer, applies fixes through one confirmed docket. Nudges at session start when the store needs attention; scheduling automates the audit via local cron. |
+| [memory-backup](plugins/memory-backup) | `/backup` (+ `setup`, `status`, `schedule`)<br>`/backup restore`<br>`/backup merge`<br>`/backup zip <path>` | Mirrors every memory store, handoff note, plan, and hand-written global config to a private GitHub repo, one squash-merged PR per run; visibility verified and every file secret-scanned before each push, so credentials never leave the machine. Restore fills what's missing and asks on conflicts; merge converges any number of machines; zip exports a portable dated archive, no GitHub needed. Cron optional, weekly default. |
 
 ---
 

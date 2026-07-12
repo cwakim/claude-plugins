@@ -1,12 +1,15 @@
 # memory-backup
 
-Off-machine durability for Claude Code's machine-local state. One command,
-`/backup`, mirrors every per-project memory store, every handoff note (live
-and archived), the plans directory, and the hand-written global config
+Off-machine durability for Claude Code's machine-local state. `/backup`
+mirrors every per-project memory store, every handoff note (live and
+archived), the plans directory, and the hand-written global config
 (`~/.claude/CLAUDE.md` and friends) into a staging clone and pushes it to a
 **private** GitHub repo, landing each run as a pull request that is
-squash-merged immediately. Set it up once, then
-run it by hand or from a weekly cron.
+squash-merged immediately. Set it up once, then run it by hand or from a
+weekly cron. Restore, zip export, and cross-machine merge are sibling
+commands: `/backup restore ...`, `/backup zip ...`, and `/backup merge ...`
+all still work, dispatching to `/memory-backup:restore`, `:zip`, and
+`:merge` respectively.
 
 ## Why
 
@@ -21,12 +24,14 @@ it at once, and nothing else backs it up.
 
 This plugin exists for that single failure and stays deliberately narrow:
 
-- **Backup, not sync.** Sources are read-only. Nothing ever flows from the
-  repo back onto live stores, and merging stores across machines is out of
-  scope for v1 (planned as the v2 `merge` command; see Roadmap). The mirror
-  is namespaced by hostname (`machines/<hostname>/...`) and
-  backup branches carry the hostname too, so any number of laptops can back
-  up into the same repo, each in its own subtree, without ever colliding.
+- **Backup, not sync.** Sources are read-only during a backup: nothing ever
+  flows from the repo back onto live stores in the background. Restoring
+  and merging are explicit, interactive, plan-confirmed commands you run on
+  purpose. The mirror is namespaced by hostname (`machines/<hostname>/...`)
+  and backup branches carry the hostname too, so any number of laptops can
+  back up into the same repo, each in its own subtree, without ever
+  colliding; `/backup merge` is how two of them converge deliberately (see
+  Merge below).
 - **Private, verified on every push.** Memories hold personal and
   work-sensitive content. The run checks the repo is still private before
   every push and refuses a public repo with no override.
@@ -69,6 +74,7 @@ exactly what leaves the machine.
 /backup status        # config, repo visibility, when the last backup landed
 /backup restore       # copy back from the repo: fill what is empty, ask on conflicts
 /backup restore <path> # same, but from a zip (or its extracted folder) instead of GitHub
+/backup merge         # converge with another machine's mirror (see Merge below)
 ```
 
 ### Automated (opt-in)
@@ -110,10 +116,10 @@ archive may then hold credentials verbatim and is only as safe as `<path>`
 itself. The result lands at
 `memory-backup-<hostname>-<YYYY-MM-DD-HHMM>.zip`. Restore it with
 `/backup restore <path>` (see Restore below), pointed at the zip or its
-extracted folder — the same diff-aware, conflict-batched restore as the
+extracted folder: the same diff-aware, conflict-batched restore as the
 GitHub mirror, not the raw manual fallback.
 
-Zip is **interactive-only, deliberately** — no cron, no headless mode.
+Zip is **interactive-only, deliberately**: no cron, no headless mode.
 Unlike a recurring GitHub backup, which needs an unattended answer because
 nobody is around to ask it weekly, zip only ever runs because someone is at
 this machine right now, choosing a destination path. There's nothing to
@@ -269,6 +275,54 @@ back to `~/` plus their relative path, `plans/` back to `~/.claude/plans/`,
 and `config/` back to `~/.claude/`; the backup repo's own README carries
 these steps, so they survive even if this machine does not.
 
+## Merge
+
+```text
+/backup merge                    # converge with another machine's mirror, from GitHub
+/backup merge <path>             # same, from a zip made on the other machine
+/backup merge --dry-run [path]   # plan only: report what a merge would do, ask nothing
+```
+
+Restore maps a mirror back onto the machine it came from; **merge converges
+this machine with the other machines' mirrors**, however many there are. It
+reads one, several, or all of the other `machines/<host>/` subtrees from
+the backup repo (or a zip carried over) and applies memories, handoff
+notes, and plans into the live state here, with
+restore's temperament: identical files skip silently, additions land
+visibly, conflicts are yours, nothing local is ever deleted, and nothing is
+applied before you confirm the plan. Config is deliberately excluded:
+settings, keybindings, and commands legitimately differ per machine and only
+move via an explicit restore.
+
+What merge adds beyond restore:
+
+- **Cross-machine path reconciliation.** Home-relative names transfer
+  between machines by construction (even across usernames). A store for a
+  project this machine never had lands dormant at its derived path, named
+  in the plan. When the same project likely lives at *different* paths on
+  the two machines, merge detects the pair and asks: merge into the local
+  path, keep separate, or skip; it never silently guesses. Stores from
+  outside the home directory are asked about too (as-is, remap, or skip).
+- **Keep both (or all).** Conflicts offer more than theirs/ours: keep the
+  local file and land each distinct incoming version beside it as
+  `<name>-from-<host>.md`, indexed, so no fact is lost. Sources that agree
+  are deduplicated into one candidate first, so a three-laptop fleet only
+  ever asks about versions that actually differ. Gardening the duplicates
+  down to one file later is the memory-gardener's job.
+- **Indexes rebuilt as a union.** `MEMORY.md` and the handoff index are
+  never offered as pick-one conflicts (that would orphan the losing side's
+  entries); after per-file outcomes settle, each index is rebuilt to list
+  exactly what exists, keeping local order and appending what landed.
+- **A backup offer at the end.** A merge leaves this machine ahead of its
+  own mirror, so it ends by asking whether to run `/backup` now. It never
+  pushes on its own. Any number of machines converge in one cycle: each
+  merges from the others and backs up, in any order, and resolutions made
+  early in the cycle propagate so later machines mostly just confirm.
+
+Merge is **interactive-only**, like zip: divergence is a judgment call, so
+there is no cron mode and no default-resolution flag. Invoked with nobody
+to ask, it logs the problem and exits cleanly.
+
 ## Safety guarantees
 
 - The repo's visibility is verified before **every** push, not just at setup;
@@ -280,11 +334,14 @@ these steps, so they survive even if this machine does not.
   what you removed on purpose.
 - A backup run writes only to `~/.claude/memory-backup/`; a zip run writes
   only to the `<path>` you give it. Live stores are only ever written by an
-  explicit `/backup restore`.
-- Restore never deletes a local-only file and never overwrites a differing
-  file without you choosing it; identical files are never even asked about.
-  Nothing is applied before the plan is confirmed, and `--dry-run` never
-  gets that far: it reports the plan and stops.
+  explicit `/backup restore` or `/backup merge`.
+- Restore and merge never delete a local-only file and never overwrite a
+  differing file without you choosing it; identical files are never even
+  asked about. Nothing is applied before the plan is confirmed, and
+  `--dry-run` never gets that far: it reports the plan and stops. Neither
+  ever writes back to its source, and merge never writes into any
+  `machines/` subtree; each machine's own subtree is updated only by its
+  own backup runs.
 - Every file mirrored to GitHub is secret-scanned before commit; a headless
   run redacts and flags rather than leaking a credential or silently
   dropping a file, so the backup is never silently incomplete. A zip asks
@@ -297,18 +354,10 @@ these steps, so they survive even if this machine does not.
 
 Planned, not built:
 
-- **v2 `merge`**: combine two machines' mirrors so memories and handoff notes
-  from two laptops converge. Per store, diff-aware, the same temperament as
-  restore: identical files merge silently, conflicts are yours to resolve,
-  nothing is deleted. Handoff notes are keyed to absolute paths, which can
-  differ between machines; merge will have to reconcile that mapping, which
-  is part of why it is its own version.
 - **v3 object storage**: S3, GCS, Alibaba OSS.
 - **v4 Google Drive**: likely via rclone.
 
-Shipped out of order: `zip` (portable archive) landed ahead of `merge`
-because it needed no cross-machine path reconciliation — see Portable
-archive above.
+`merge` (the planned v2) shipped in 1.0.0; see Merge above.
 
 ## Install
 
