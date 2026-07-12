@@ -1,6 +1,6 @@
 # claude-plugins
 
-A small personal marketplace of [Claude Code](https://claude.com/claude-code) plugins, by [Charbel Wakim](https://charbelwakim.com).
+A personal marketplace of [Claude Code](https://claude.com/claude-code) plugins by [Charbel Wakim](https://charbelwakim.com), built around one idea: work that outlives the session. Handoffs that survive context loss, memory that stays healthy and backed up, repos that stay clean.
 
 ## Install
 
