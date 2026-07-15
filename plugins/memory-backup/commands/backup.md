@@ -1,5 +1,5 @@
 ---
-description: Back up every per-project memory store, handoff note, plan, and the hand-written global config to a private GitHub repo, landing each run as a PR that is squash-merged immediately. Also setup, status, and cron scheduling; restore, zip, and merge are sibling commands this one dispatches to.
+description: Back up every per-project memory store, handoff note, plan, and the hand-written global config to a private GitHub repo, landing each run as a PR that is squash-merged immediately. Also setup, status, and scheduling (cron or launchd); restore, zip, and merge are sibling commands this one dispatches to.
 ---
 
 # Memory Backup
@@ -35,8 +35,9 @@ The mirror tree, naming rules, and invariants live in
   protections, clone the staging copy.
 - **`status`** reports the configuration, the remote repo and its visibility,
   and when the last backup landed. No changes.
-- **`schedule`** installs a local cron job that runs the backup on a cadence;
-  **`unschedule`** removes it. See Schedule mode.
+- **`schedule`** installs a local scheduled job (cron, or launchd on macOS)
+  that runs the backup on a cadence; **`unschedule`** removes it. See
+  Schedule mode.
 - **`restore ...`**, **`zip ...`**, **`merge ...`** are sibling commands,
   split out so each invocation loads only what it needs. Read
   `${CLAUDE_PLUGIN_ROOT}/commands/restore.md`, `zip.md`, or `merge.md` and
@@ -101,8 +102,8 @@ name-derivation rules are in `docs/layout.md`.
 
 ## Backup run
 
-Runs unattended once configured: no questions, so it works headlessly from
-cron. If unconfigured and running headlessly (no user to ask), log the problem
+Runs unattended once configured: no questions, so it works headlessly from a
+scheduled job. If unconfigured and running headlessly (no user to ask), log the problem
 and exit cleanly instead of starting setup.
 
 1. **Verify visibility first, every time.** `gh repo view --json visibility`
@@ -168,45 +169,100 @@ and exit cleanly instead of starting setup.
 Read-only. Report: whether `~/.claude/memory-backup/` is configured, the
 origin remote and its current visibility, the timestamp of the last landed
 backup (last commit on main), how many stores and handoff notes the last
-manifest recorded, and whether a `# memory-backup` cron entry exists.
+manifest recorded, and whether a scheduled job exists: check both the
+crontab marker (`crontab -l 2>/dev/null | grep "# memory-backup"`) and the
+launchd agent (`launchctl print gui/$(id -u)/local.memory-backup`).
 
 ## Schedule mode (`schedule` / `unschedule`)
 
-Installs (or removes) a **local cron job** that runs the backup on a cadence.
-Local cron, not a cloud routine: the stores live on this machine.
+Installs (or removes) a **local scheduled job** that runs the backup on a
+cadence. Local, not a cloud routine: the stores live on this machine. Two
+schedulers are supported: **cron** (everywhere) and **launchd** (macOS
+only). The functional difference that matters: cron silently skips a run if
+the machine is asleep or off at the scheduled time; launchd runs a missed
+job as soon as the machine wakes (though not if it was fully powered off).
 
-**`unschedule`:** remove the entry and confirm:
+**`unschedule`:** remove whichever exists (check both) and confirm:
 
 ```bash
+# cron entry, if present
 crontab -l 2>/dev/null | grep -v "# memory-backup" | crontab -
+# launchd agent, if present
+launchctl bootout gui/$(id -u)/local.memory-backup 2>/dev/null
+rm -f ~/Library/LaunchAgents/local.memory-backup.plist
 ```
 
 **`schedule`:**
 
-1. Check for an existing entry (`crontab -l 2>/dev/null | grep
-   "# memory-backup"`). If one exists, show it and ask whether to replace or
-   keep it. If no backup has ever run interactively (no
-   `machines/<hostname>/` in the staging repo, or no `.redact-allow`
-   decisions yet), recommend one interactive `/backup` first: cron resolves
-   secret scan findings on its own (redact and flag, it cannot ask), so the
-   first pass over the stores should get the user's include/omit/redact
-   calls, not cron's defaults.
-2. Ask the cadence via `AskUserQuestion` (weekly is the sensible default for
+1. Check for an existing job under **both** schedulers (the crontab marker
+   and the launchd agent, as in Status). If one exists, show it and ask
+   whether to replace or keep it; replacing may also mean switching
+   scheduler, in which case remove the old job as in `unschedule`. If no
+   backup has ever run interactively (no `machines/<hostname>/` in the
+   staging repo, or no `.redact-allow` decisions yet), recommend one
+   interactive `/backup` first: a headless run resolves secret scan findings
+   on its own (redact and flag, it cannot ask), so the first pass over the
+   stores should get the user's include/omit/redact calls, not the
+   scheduler's defaults.
+2. On macOS (`uname` is `Darwin`), ask which scheduler via
+   `AskUserQuestion`, recommending launchd: a laptop asleep at the
+   scheduled time misses cron runs entirely, while launchd catches up on
+   wake. Offer cron for users who prefer keeping everything in one crontab.
+   On other platforms, use cron without asking.
+3. Ask the cadence via `AskUserQuestion` (weekly is the sensible default for
    a backup; offer daily and monthly too).
-3. Resolve the absolute `claude` binary path (`command -v claude`): cron's
-   PATH is minimal and will not find it otherwise.
-4. Append the entry (never overwrite other lines):
+4. Resolve the absolute `claude` binary path (`command -v claude`): neither
+   scheduler loads the user's shell profile, so a bare `claude` will not be
+   found.
+5. Install the job. The command is identical under both schedulers; only
+   the wrapper differs.
+
+   **cron**: append the entry (never overwrite other lines):
    ```bash
    (crontab -l 2>/dev/null; echo '<min> <hour> <dom> * <dow> cd ~ && <abs-claude> -p "/memory-backup:backup" --allowedTools "Read,Glob,Grep,Write,Bash" >> ~/.claude/memory-backup/.cron.log 2>&1 # memory-backup') | crontab -
    ```
-   The `--allowedTools` list lets the headless run work unattended: reads for
-   collecting the stores, Bash for rsync, git, and gh, Write for the manifest.
-   Warn the user this grants those tools unattended for that run, and that
-   each run is a real headless session consuming plan/API usage.
-5. Offer a smoke test: run the exact command once in the foreground and
-   confirm it lands a backup (or reports "no changes") cleanly.
-6. Report the installed line and how to remove it (`unschedule`). Uninstalling
-   the plugin does **not** remove the cron job; unschedule first.
+
+   **launchd**: write `~/Library/LaunchAgents/local.memory-backup.plist`:
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key>
+     <string>local.memory-backup</string>
+     <key>ProgramArguments</key>
+     <array>
+       <string>/bin/zsh</string>
+       <string>-lc</string>
+       <string>cd ~ &amp;&amp; <abs-claude> -p "/memory-backup:backup" --allowedTools "Read,Glob,Grep,Write,Bash" &gt;&gt; ~/.claude/memory-backup/.cron.log 2&gt;&amp;1</string>
+     </array>
+     <key>StartCalendarInterval</key>
+     <dict>
+       <!-- weekly: Weekday (0=Sun) + Hour + Minute; daily: Hour + Minute;
+            monthly: Day + Hour + Minute -->
+     </dict>
+   </dict>
+   </plist>
+   ```
+   then validate and load it:
+   ```bash
+   plutil -lint ~/Library/LaunchAgents/local.memory-backup.plist
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.memory-backup.plist
+   ```
+
+   Either way the `--allowedTools` list is what lets the headless run work
+   unattended: reads for collecting the stores, Bash for rsync, git, and gh,
+   Write for the manifest. Warn the user this grants those tools unattended
+   for that run, and that each run is a real headless session consuming
+   plan/API usage. Both schedulers log to the same
+   `~/.claude/memory-backup/.cron.log`.
+6. Offer a smoke test: run the exact command once in the foreground and
+   confirm it lands a backup (or reports "no changes") cleanly. (For
+   launchd, `launchctl kickstart gui/$(id -u)/local.memory-backup` fires
+   the real job on demand.)
+7. Report what was installed (the crontab line, or the plist path and
+   label) and how to remove it (`unschedule`). Uninstalling the plugin does
+   **not** remove the scheduled job; unschedule first.
 
 ## Notes
 

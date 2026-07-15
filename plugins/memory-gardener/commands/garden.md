@@ -25,9 +25,10 @@ a memory *claims* without showing it in the docket and getting a yes.
   than N days ago (per `stat`/`git log` on the file).
 - **`--dry-run`** stops after presenting the docket: no questions, no edits, no
   deletions. (It still writes the docket artifact; see State directory.)
-- **`schedule`** sets up a local cron job that runs the dry-run periodically;
-  follow the **Schedule mode** section instead of steps 1-5.
-- **`unschedule`** removes that cron job; see Schedule mode.
+- **`schedule`** sets up a local scheduled job (cron, or launchd on macOS)
+  that runs the dry-run periodically; follow the **Schedule mode** section
+  instead of steps 1-5.
+- **`unschedule`** removes that job; see Schedule mode.
 
 Examples: `/garden`, `/garden project`, `/garden feedback --older-than 60d`,
 `/garden --dry-run`, `/garden schedule`, `/garden unschedule`.
@@ -156,51 +157,104 @@ merges, deletions, questions answered, and anything deliberately left alone
 (including dangling `[[links]]` kept as future markers). If nothing was wrong,
 say the store is clean and how many memories were checked.
 
-Finally, if this project has no scheduled audit yet (`crontab -l 2>/dev/null |
-grep "# memory-gardener:<slug>"` is empty), mention once that `/garden schedule`
-can run the dry-run automatically and leave a docket for the session-start
-nudge. Just mention it; do not set anything up unasked.
+Finally, if this project has no scheduled audit yet (both `crontab -l
+2>/dev/null | grep "# memory-gardener:<slug>"` and `launchctl print
+gui/$(id -u)/local.memory-gardener.<slug>` come up empty), mention once that
+`/garden schedule` can run the dry-run automatically and leave a docket for
+the session-start nudge. Just mention it; do not set anything up unasked.
 
 ## Schedule mode (`schedule` / `unschedule`)
 
-Sets up (or removes) a **local cron job** that runs the dry-run headlessly on a
-cadence and leaves its docket in the state directory, upgrading the
-SessionStart nudge from heuristic to evidence-based. Local cron, not a cloud
+Sets up (or removes) a **local scheduled job** that runs the dry-run headlessly
+on a cadence and leaves its docket in the state directory, upgrading the
+SessionStart nudge from heuristic to evidence-based. Local, not a cloud
 routine: the memory store lives on this machine, so a cloud agent cannot read
-it.
+it. Two schedulers are supported: **cron** (everywhere) and **launchd**
+(macOS only). The difference that matters: cron silently skips a run if the
+machine is asleep or off at the scheduled time; launchd runs a missed job as
+soon as the machine wakes (though not if it was fully powered off).
 
-**`unschedule`:** remove this project's entry and confirm:
+**`unschedule`:** remove this project's job, whichever scheduler holds it
+(check both), and confirm:
 ```bash
+# cron entry, if present
 crontab -l 2>/dev/null | grep -v "# memory-gardener:<slug>" | crontab -
+# launchd agent, if present
+launchctl bootout gui/$(id -u)/local.memory-gardener.<slug> 2>/dev/null
+rm -f ~/Library/LaunchAgents/local.memory-gardener.<slug>.plist
 ```
 
 **`schedule`:**
 
-1. Compute the project slug (as in Step 0) and check for an existing entry
-   (`crontab -l 2>/dev/null | grep "# memory-gardener:<slug>"`). If one exists,
-   show it and ask whether to replace or keep it.
-2. Ask the cadence via `AskUserQuestion` (e.g. weekly Monday 09:00, every two
+1. Compute the project slug (as in Step 0) and check for an existing job
+   under **both** schedulers (the crontab marker and the launchd agent, as in
+   the Step 5 nudge check). If one exists, show it and ask whether to replace
+   or keep it; replacing may also mean switching scheduler, in which case
+   remove the old job as in `unschedule`.
+2. On macOS (`uname` is `Darwin`), ask which scheduler via `AskUserQuestion`,
+   recommending launchd: a laptop asleep at the scheduled time misses cron
+   runs entirely, while launchd catches up on wake. Offer cron for users who
+   prefer keeping everything in one crontab. On other platforms, use cron
+   without asking.
+3. Ask the cadence via `AskUserQuestion` (e.g. weekly Monday 09:00, every two
    weeks, monthly on the 1st; monthly is the sensible default for one
    actively-used project).
-3. Resolve the absolute `claude` binary path (`command -v claude`): cron's
-   PATH is minimal and will not find it otherwise.
-4. Append the entry (never overwrite other lines). The `mkdir -p` matters:
-   shell redirection does not create directories, so without it the job fails
-   silently on a machine where the state dir does not exist yet.
+4. Resolve the absolute `claude` binary path (`command -v claude`): neither
+   scheduler loads the user's shell profile, so a bare `claude` will not be
+   found.
+5. Install the job. The command is identical under both schedulers; only the
+   wrapper differs. The `mkdir -p` matters either way: shell redirection does
+   not create directories, so without it the job fails silently on a machine
+   where the state dir does not exist yet.
+
+   **cron**: append the entry (never overwrite other lines):
    ```bash
    (crontab -l 2>/dev/null; echo '<min> <hour> <dom> * <dow> cd <abs-project-dir> && mkdir -p <state-dir> && <abs-claude> -p "/memory-gardener:garden --dry-run" --allowedTools "Read,Glob,Grep,Write,Bash" >> <state-dir>/cron.log 2>&1 # memory-gardener:<slug>') | crontab -
    ```
-   The `--allowedTools` list is what lets the headless run work without a human
-   approving tool calls: reads for the audit, Bash for the evidence checks,
-   Write for the docket artifact. Warn the user this grants those tools
-   unattended for that run.
-5. Offer a smoke test: run the exact command once in the foreground and confirm
-   it exits cleanly and `docket.md` appears in the state directory. Headless
-   runs consume plan/API usage; say so when the user picks an aggressive
-   cadence (weekly or tighter).
-6. Report the installed crontab line and how to remove it (`/garden
-   unschedule`). Note: uninstalling the plugin does **not** remove the cron
-   job (plugins have no uninstall hook); unschedule first.
+
+   **launchd**: write
+   `~/Library/LaunchAgents/local.memory-gardener.<slug>.plist`:
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key>
+     <string>local.memory-gardener.<slug></string>
+     <key>ProgramArguments</key>
+     <array>
+       <string>/bin/zsh</string>
+       <string>-lc</string>
+       <string>cd <abs-project-dir> &amp;&amp; mkdir -p <state-dir> &amp;&amp; <abs-claude> -p "/memory-gardener:garden --dry-run" --allowedTools "Read,Glob,Grep,Write,Bash" &gt;&gt; <state-dir>/cron.log 2&gt;&amp;1</string>
+     </array>
+     <key>StartCalendarInterval</key>
+     <dict>
+       <!-- weekly: Weekday (0=Sun) + Hour + Minute; monthly: Day + Hour +
+            Minute -->
+     </dict>
+   </dict>
+   </plist>
+   ```
+   then validate and load it:
+   ```bash
+   plutil -lint ~/Library/LaunchAgents/local.memory-gardener.<slug>.plist
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.memory-gardener.<slug>.plist
+   ```
+
+   Either way the `--allowedTools` list is what lets the headless run work
+   without a human approving tool calls: reads for the audit, Bash for the
+   evidence checks, Write for the docket artifact. Warn the user this grants
+   those tools unattended for that run. Both schedulers log to the same
+   `<state-dir>/cron.log`.
+6. Offer a smoke test: run the exact command once in the foreground and confirm
+   it exits cleanly and `docket.md` appears in the state directory. (For
+   launchd, `launchctl kickstart gui/$(id -u)/local.memory-gardener.<slug>`
+   fires the real job on demand.) Headless runs consume plan/API usage; say
+   so when the user picks an aggressive cadence (weekly or tighter).
+7. Report what was installed (the crontab line, or the plist path and label)
+   and how to remove it (`/garden unschedule`). Note: uninstalling the plugin
+   does **not** remove the scheduled job (plugins have no uninstall hook);
+   unschedule first.
 
 ## Notes
 

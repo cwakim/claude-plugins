@@ -80,25 +80,30 @@ exactly what leaves the machine.
 ### Automated (opt-in)
 
 ```text
-/backup schedule      # pick a cadence; installs a local cron job (weekly default)
+/backup schedule      # pick a scheduler and cadence (weekly default)
 /backup unschedule    # remove it
 ```
 
+On macOS the schedule step asks whether to install the job as a classic
+**cron** entry or a **launchd** agent, and recommends launchd: cron silently
+skips a run if the machine is asleep at the scheduled time, launchd runs the
+missed job when it wakes. On other platforms it installs cron without asking.
+
 Four things to know before scheduling:
 
-- **Run `/backup` interactively at least once first.** Cron resolves secret
-  scan findings on its own (it redacts and flags; it cannot ask), so let an
-  interactive run surface what the scan finds in *your* stores and make the
-  include/omit/redact calls yourself. Once the false positives are
-  allowlisted, cron runs quietly.
-- It is **local cron, not a cloud routine**, on purpose: the stores live on
+- **Run `/backup` interactively at least once first.** A headless run
+  resolves secret scan findings on its own (it redacts and flags; it cannot
+  ask), so let an interactive run surface what the scan finds in *your*
+  stores and make the include/omit/redact calls yourself. Once the false
+  positives are allowlisted, scheduled runs are quiet.
+- It is a **local job, not a cloud routine**, on purpose: the stores live on
   your machine and a scheduled cloud agent cannot read them.
 - Each scheduled run is a real headless Claude Code session and **consumes
   plan/API usage**. Weekly is a sensible default.
 - The headless run needs tools pre-approved (`--allowedTools "Read,Glob,Grep,
-  Write,Bash"` in the cron line), because nobody is there to click through
-  permission prompts. The schedule step shows you the exact line and offers a
-  foreground smoke test before trusting it to cron.
+  Write,Bash"` in the job's command), because nobody is there to click
+  through permission prompts. The schedule step shows you the exact command
+  and offers a foreground smoke test before trusting it to the scheduler.
 
 ### Portable archive (no GitHub required)
 
