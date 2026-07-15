@@ -113,10 +113,15 @@ again. This loop alone keeps a store healthy.
 ### Automated detection (opt-in)
 
 ```text
-/garden schedule      # pick a cadence; installs a local cron job
+/garden schedule      # pick a scheduler and cadence
 ```
 
-The cron job runs `/garden --dry-run` headlessly on your cadence and saves the
+On macOS the schedule step asks whether to install the job as a classic
+**cron** entry or a **launchd** agent, and recommends launchd: cron silently
+skips a run if the machine is asleep at the scheduled time, launchd runs the
+missed job when it wakes. On other platforms it installs cron without asking.
+
+The scheduled job runs `/garden --dry-run` headlessly on your cadence and saves the
 docket it finds. From then on the session-start nudge is evidence-based:
 
 ```text
@@ -130,14 +135,14 @@ unschedule` removes the job.
 
 Three things to know before scheduling:
 
-- It is **local cron, not a cloud routine**, on purpose: the memory store lives
+- It is a **local job, not a cloud routine**, on purpose: the memory store lives
   on your machine and a scheduled cloud agent cannot read it.
 - Each scheduled run is a real headless Claude Code session and **consumes
   plan/API usage**. Monthly is a sensible default for one active project.
 - The headless run needs tools pre-approved (`--allowedTools "Read,Glob,Grep,
-  Write,Bash"` in the cron line), because nobody is there to click through
-  permission prompts. The schedule step shows you the exact line and offers a
-  foreground smoke test before trusting it to cron.
+  Write,Bash"` in the job's command), because nobody is there to click through
+  permission prompts. The schedule step shows you the exact command and offers
+  a foreground smoke test before trusting it to the scheduler.
 
 ### Scoped and filtered runs
 
