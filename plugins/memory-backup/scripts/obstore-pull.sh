@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# obstore-pull.sh — materialize a memory-backup mirror from an S3-compatible
+# obstore-pull.sh: materialize a memory-backup mirror from an S3-compatible
 # object store into a local directory, so `restore` (and `merge`) can treat it
 # exactly like an extracted zip. The read-direction counterpart of
 # obstore-sync.sh, and the whole object-storage-specific part of restore: once
@@ -9,7 +9,7 @@
 #
 # Contract:
 #   * Read-only against the bucket: it downloads, never uploads, never deletes
-#     a remote object. (No privacy gate here — that gate guards *writing* your
+#     a remote object. (No privacy gate here: that gate guards *writing* your
 #     memories to a public place; pulling your own data down is not that risk.)
 #   * Fail-closed on reachability: if the bucket or prefix cannot be read with
 #     the configured credentials, it aborts rather than producing a partial or
@@ -22,7 +22,7 @@
 #   obstore-pull.sh --dest DIR --bucket NAME [--prefix KEY] [--host HOST]
 #                   [--endpoint URL] [--region R] [--profile P]
 #
-# On success, DEST contains `machines/<host>/...` — a valid restore source root.
+# On success, DEST contains `machines/<host>/...`: a valid restore source root.
 #
 # Exit codes:
 #   0  success (mirror materialized under DEST)

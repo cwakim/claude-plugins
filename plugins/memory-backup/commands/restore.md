@@ -45,7 +45,7 @@ reconciles two machines' divergent state.
     extracted zip: read-only, and cleaned up at the end (step 4) or on any
     early stop, since this run created it.
   - **Both configured**: ask via `AskUserQuestion` which to restore from
-    (they can differ — the bucket may be ahead of or behind the git mirror).
+    (they can differ: the bucket may be ahead of or behind the git mirror).
     **Only one** configured: use it without asking.
 
 Every step below treats "the source root" as whichever of these resolved,
