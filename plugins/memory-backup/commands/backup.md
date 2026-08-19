@@ -84,6 +84,15 @@ against MinIO in Docker).
 reconfigure (re-point) an existing one, or remove one. There is no separate
 reconfigure command; running `setup` again is how you change anything.
 
+**Run this as one continuous flow, not a narrated plan.** The only pauses are
+the `AskUserQuestion` prompts themselves and the final confirmation: ask a
+question, act on the answer, move straight to the next step. Do **not** emit
+"checkpoint", "remaining work", or step-by-step progress summaries between the
+questions, and do not stop to describe what you are about to do. Produce exactly
+one short report at the very end (what changed, what is now configured). A brief
+one-line state summary before the first question is fine; running commentary
+between stages is not.
+
 "Configured" means at least one target exists: the GitHub staging clone
 (`~/.claude/memory-backup/` with an origin remote) or an object-storage config
 (`~/.claude/memory-backup/obstore.json`). A first run with neither triggers
