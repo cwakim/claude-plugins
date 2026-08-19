@@ -54,7 +54,10 @@ Each case is one behavior of the core, asserted against the live server:
 13. **Setup refuses public** — setup will not certify a bucket that still
     answers anonymous requests (exit 4), so `obstore.json` is never written for
     a public bucket.
-14. **Full pull (merge source)** — a pull with no `--host` materializes *every*
+14. **Public→fix→private lifecycle** — a bucket that starts public is refused by
+    both setup and sync (nothing uploaded); after it is made private, both
+    proceed. This is the automated form of the interactive "fix it" path.
+15. **Full pull (merge source)** — a pull with no `--host` materializes *every*
     machine's subtree, not just this host's, which is what `merge` reads across.
 
-A green run is `14 passed, 0 failed`, exit 0.
+A green run is `15 passed, 0 failed`, exit 0.

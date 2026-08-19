@@ -233,7 +233,31 @@ out="$("$SETUP" --bucket "$NEWB" --endpoint "$ENDPOINT" 2>&1)"; rc=$?
   && ok "setup refuses to certify a public bucket (exit 4)" \
   || bad "expected exit 4 REFUSED on public bucket, got rc=$rc: $out"
 
-# --- Test 14: pull with no --host brings down every machine (merge's need) --
+# --- Test 14: public -> refuse -> make private -> succeed (the fix lifecycle)
+# Mirrors the interactive "fix it" path: a bucket that starts public is refused
+# by both setup and sync; after it is made private, both proceed.
+LB="${BUCKET}-life"
+"${AWSM[@]}" s3 mb "s3://$LB" >/dev/null 2>&1
+cat > "$WORK/pub-life.json" <<POLICY
+{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*",
+"Action":["s3:GetObject","s3:ListBucket"],
+"Resource":["arn:aws:s3:::${LB}","arn:aws:s3:::${LB}/*"]}]}
+POLICY
+"${AWSM[@]}" s3api put-bucket-policy --bucket "$LB" --policy "file://$WORK/pub-life.json" >/dev/null 2>&1
+"$SETUP" --bucket "$LB" --endpoint "$ENDPOINT" >/dev/null 2>&1; s_rc=$?
+"$SYNC" --source "$WORK/src" --bucket "$LB" --endpoint "$ENDPOINT" --prefix "" >/dev/null 2>&1; y_rc=$?
+n_public="$("${AWSM[@]}" s3api list-objects-v2 --bucket "$LB" --query 'length(Contents || `[]`)' --output text 2>/dev/null)"
+# The fix: make it private.
+"${AWSM[@]}" s3api delete-bucket-policy --bucket "$LB" >/dev/null 2>&1
+"$SETUP" --bucket "$LB" --endpoint "$ENDPOINT" >/dev/null 2>&1; s_rc2=$?
+"$SYNC" --source "$WORK/src" --bucket "$LB" --endpoint "$ENDPOINT" --prefix "" >/dev/null 2>&1; y_rc2=$?
+n_private="$("${AWSM[@]}" s3api list-objects-v2 --bucket "$LB" --query 'length(Contents || `[]`)' --output text 2>/dev/null)"
+{ [ "$s_rc" = 4 ] && [ "$y_rc" = 4 ] && [ "$n_public" = 0 ] \
+  && [ "$s_rc2" = 0 ] && [ "$y_rc2" = 0 ] && [ "$n_private" -gt 0 ]; } \
+  && ok "public->refuse (nothing up) -> made private -> setup+sync succeed" \
+  || bad "lifecycle: public(setup=$s_rc sync=$y_rc objs=$n_public) private(setup=$s_rc2 sync=$y_rc2 objs=$n_private)"
+
+# --- Test 15: pull with no --host brings down every machine (merge's need) --
 # merge reads across all machines' subtrees, so a full pull must materialize
 # them all, not just this host's.
 mkdir -p "$WORK/src/machines/otherhost/memories/sites-work"
