@@ -379,3 +379,8 @@ Requires the GitHub CLI (`gh`), authenticated.
   healthy, backup keeps it existing), but neither depends on the other.
 - Uninstalling the plugin does **not** remove a scheduled cron job (plugins
   have no uninstall hook). Run `/backup unschedule` first.
+- Backup commits in the staging clone are made with `commit.gpgsign` set to
+  `false`, scoped locally to that one clone only (never your global git
+  config). The clone holds nothing but this plugin's own backup commits, so
+  signing adds no value, and a headless run has no TTY to satisfy a GPG
+  passphrase prompt.

@@ -71,12 +71,20 @@ name-derivation rules are in `docs/layout.md`.
      `gh repo view <owner/name> --json visibility`. If it is not `PRIVATE`,
      **refuse and stop**. Memories hold personal and work-sensitive content;
      there is no public override.
-4. Clone into `~/.claude/memory-backup/`. Seed `README.md` (what the repo
-   contains, a warning that it must stay private, `/backup restore` as the
-   recovery path plus the manual fallback from restore.md) and
-   `.gitignore` (containing `.cron.log`).
+4. Clone into `~/.claude/memory-backup/`. Immediately run
+   `git config --local commit.gpgsign false` in the clone: this repo holds
+   only backup commits from this plugin, never hand-authored work, so
+   signing adds nothing, and a headless run (`claude -p`, no TTY) cannot
+   satisfy a GPG passphrase prompt — the scoping is local to this one clone,
+   never the user's global git config, so signing elsewhere on the machine
+   is untouched. Seed `README.md` (what the repo contains, a warning that it
+   must stay private, `/backup restore` as the recovery path plus the manual
+   fallback from restore.md) and `.gitignore` (containing `.cron.log`).
    Commit and push this seed **directly to main**: branch protection does not
    exist yet, and the classic protection API needs the branch to exist first.
+   If `~/.claude/memory-backup/` already existed from before this fix, apply
+   the same `git config --local commit.gpgsign false` to it once, same
+   reasoning, no need to re-clone.
 5. Now apply the repo settings:
    - `gh repo edit <owner/name> --delete-branch-on-merge`
    - Branch protection on `main` requiring a PR with zero approvals. This is
