@@ -72,21 +72,37 @@ see `tests/obstore/`. Its contract: the source dir is already built and already
 scanned; it only verifies privacy and mirrors. It never reads live stores and
 never scans.
 
-## Privacy: verified before every upload, fail-closed
+## Privacy: verified before every upload
 
 The git target refuses any repo that is not `PRIVATE`. The object-storage
-target upholds the same boundary with two checks, and **fails closed** — if it
-cannot prove the bucket is both reachable and private, it uploads nothing:
+target upholds the same boundary with two checks:
 
 1. **Reachable with our credentials.** `head-bucket` must succeed. A missing
    bucket or bad credentials aborts the run (exit 3) before any privacy claim
-   is even considered.
+   is even considered. This is not overridable.
 2. **Closed to the public.** An *anonymous, unsigned* request must be denied.
    The script probes `list-objects-v2 --no-sign-request` (and an anonymous
-   `head-object` on an existing key); if either succeeds, the bucket is public
-   and the run is **REFUSED** (exit 4), nothing uploaded. This probe is
-   empirical and endpoint-agnostic, so it behaves identically on AWS and MinIO
-   and does not depend on any one provider's ACL/policy API.
+   `head-object` on an existing key); if either succeeds, the bucket is public.
+   This probe is empirical and endpoint-agnostic, so it behaves identically on
+   AWS and MinIO and does not depend on any one provider's ACL/policy API.
+
+**What a public finding does depends on who is running**, mirroring how the
+secret scan splits interactive from headless:
+
+- **Interactive:** the command warns loudly and asks — **proceed anyway**,
+  **fix it** (make the bucket private: remove the public policy / enable Public
+  Access Block, then re-verify), or **abort**. A public bucket is sometimes a
+  mistake and sometimes a deliberate call; the person at the keyboard makes it.
+  "Proceed anyway" re-invokes the sync with `--allow-public`, an explicit,
+  per-run, auditable override (it shows up as `"allowPublic": true` in the
+  report).
+- **Headless (cron/launchd):** there is nobody to warn, so the run **fails
+  closed** — REFUSED (exit 4), nothing uploaded. A scheduled job never passes
+  `--allow-public`; it will not push your memories to a public bucket
+  unattended just because an interactive run might have chosen to.
+
+So `obstore-sync.sh` defaults to refusing a public bucket (exit 4) and only
+proceeds when the interactive layer passes `--allow-public` after your yes.
 
 On real AWS the **setup** step additionally turns on the bucket's Public Access
 Block (all four flags) and enables **versioning**; the anonymous probe above is
@@ -107,14 +123,35 @@ semantics differ.
   `<prefix>/machines/<hostname>/`; it never deletes a bucket, never touches
   another machine's subtree, and never disables versioning.
 
+## Restore from a bucket
+
+`restore` reads an object-storage bucket as a source: when
+`obstore.json` exists (and no zip `<path>` is given), it materializes the
+mirror into a temp directory with `scripts/obstore-pull.sh` and then runs the
+**existing** diff-aware plan/conflict/apply logic unchanged — the temp
+directory is just another "source root", handled exactly like an extracted zip
+(read-only, cleaned up at the end). `obstore-pull.sh` is read-only against the
+bucket and fails closed if there is nothing to pull, so an empty download can
+never masquerade as a valid empty source root. If **both** a git mirror and a
+bucket are configured, restore asks which to read from; the round-trip is
+covered by `tests/obstore/` (pull reproduces the tree byte-for-byte). See
+`commands/restore.md`.
+
+## Two targets at once
+
+The git and object-storage targets are independent and may both be configured:
+they write disjoint destinations (a git repo vs. a bucket) and share no mutable
+state, so a machine can back up to either or both. `restore` asks which source
+to read when both exist; a backup run pushes to whichever targets are
+configured.
+
 ## Out of scope for this cut (follow-ups)
 
-- **Restore/merge from object storage.** The round-trip is proven in the tests
-  (a plain `aws s3 sync` in reverse reproduces the tree byte-for-byte), so
-  wiring `restore`/`merge` to read a bucket is mechanical, but the interactive
-  plan/diff UX is not yet built here.
 - **Setup UX** (the `AskUserQuestion` target picker, bucket creation, Public
   Access Block + versioning enablement) is specified above and in `backup.md`
-  but not yet a turnkey command flow.
+  but not yet a turnkey command flow. `obstore.json` is written by that flow.
+- **`merge` from a bucket.** Restore is wired; merge's cross-machine pull can
+  reuse `obstore-pull.sh` (it already fetches every host's subtree by default)
+  but its plan wiring is not done here.
 - **Scheduling** reuses the existing headless machinery unchanged once setup
   lands; nothing target-specific is needed.

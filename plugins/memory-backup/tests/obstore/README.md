@@ -1,6 +1,7 @@
 # Object-storage target tests
 
-End-to-end tests for `scripts/obstore-sync.sh`, the mechanical core of the v3
+End-to-end tests for `scripts/obstore-sync.sh` (backup) and
+`scripts/obstore-pull.sh` (restore), the mechanical core of the v3
 object-storage target. They run against a **real** S3-compatible server
 (MinIO) started in Docker on `localhost` — no AWS account, no credentials, no
 bytes leave the machine.
@@ -37,5 +38,14 @@ Each case is one behavior of the core, asserted against the live server:
    untouched (ETag unchanged).
 8. **Fail-closed** — an unreachable endpoint aborts (exit 3) without uploading,
    never assuming privacy it could not verify.
+9. **`--allow-public` override** — the explicit interactive override turns the
+   public-bucket refusal into a loud warning and proceeds (exit 0,
+   `allowPublic:true`). Headless never passes it, so headless stays refused.
+10. **Restore pull** — `obstore-pull.sh` materializes the bucket into a local
+    directory that reproduces the mirror byte-for-byte: the whole
+    object-storage-specific part of restore, after which the existing
+    plan/apply logic takes over.
+11. **Pull fails closed** — pulling a prefix with nothing under it aborts
+    (exit 3), so an empty download never masquerades as a valid source root.
 
-A green run is `8 passed, 0 failed`, exit 0.
+A green run is `11 passed, 0 failed`, exit 0.

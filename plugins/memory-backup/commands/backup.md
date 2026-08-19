@@ -65,11 +65,16 @@ destination and the history mechanism differ. When
 `~/.claude/memory-backup/obstore.json` exists, this command builds and
 secret-scans the tree into `~/.claude/memory-backup/staging/` exactly as for
 git, then hands it to `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-sync.sh`, which
-verifies the bucket is private (fail-closed) and mirrors it with
-delete-propagation. Read `${CLAUDE_PLUGIN_ROOT}/docs/object-storage.md` for the
-destination model, the privacy gate, versioning-as-history, and what is still a
-follow-up. The sync core is covered by an end-to-end localhost test
-(`tests/obstore/`, run against MinIO in Docker).
+verifies the bucket is private and mirrors it with delete-propagation. On a
+public bucket the script refuses by default (exit 4); an **interactive** run
+warns and, only on the user's explicit yes, re-invokes with `--allow-public`,
+while a **headless** run stays refused (nobody to consent). Both targets may be
+configured at once — they write disjoint destinations — and `restore` reads a
+bucket via `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-pull.sh`. Read
+`${CLAUDE_PLUGIN_ROOT}/docs/object-storage.md` for the destination model, the
+privacy gate, versioning-as-history, and the remaining follow-ups. The sync and
+pull cores are covered by an end-to-end localhost test (`tests/obstore/`, run
+against MinIO in Docker).
 
 ## Setup (`setup`, or first run when unconfigured)
 
@@ -309,7 +314,8 @@ rm -f ~/Library/LaunchAgents/local.memory-backup.plist
 - **Never force-push.** The command touches only `main` and its own
   `backup/*` branches, and resolves nothing with force.
 - Roadmap: object-storage targets (S3, GCS, Alibaba OSS, MinIO) are **v3, in
-  progress** — the sync core (`scripts/obstore-sync.sh`) is built and tested
-  end-to-end against a localhost MinIO (`tests/obstore/`); the setup UX and
-  restore/merge-from-bucket wiring are the remaining pieces (see
+  progress** — the sync and pull cores (`scripts/obstore-sync.sh`,
+  `scripts/obstore-pull.sh`) are built and tested end-to-end against a
+  localhost MinIO (`tests/obstore/`), and `restore` reads a bucket; the setup
+  UX and merge-from-bucket wiring are the remaining pieces (see
   `docs/object-storage.md`). Google Drive via rclone is v4, not started.

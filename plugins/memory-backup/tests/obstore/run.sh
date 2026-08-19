@@ -16,6 +16,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SYNC="$HERE/../../scripts/obstore-sync.sh"
+PULL="$HERE/../../scripts/obstore-pull.sh"
 PORT="${PORT:-9010}"
 ENDPOINT="http://127.0.0.1:${PORT}"
 BUCKET="mb-test-$$"
@@ -55,6 +56,7 @@ command -v docker >/dev/null 2>&1 || skip "docker not found"
 docker info >/dev/null 2>&1        || skip "docker daemon not running (start Docker Desktop)"
 command -v aws >/dev/null 2>&1     || skip "aws CLI not found"
 [ -x "$SYNC" ] || chmod +x "$SYNC"
+[ -x "$PULL" ] || chmod +x "$PULL"
 
 echo "==> Starting MinIO on ${ENDPOINT} (container ${CONTAINER})"
 docker run -d --name "$CONTAINER" -p "${PORT}:9000" \
@@ -173,6 +175,38 @@ out="$("$SYNC" --source "$WORK/src" --bucket "$BUCKET" --endpoint "http://127.0.
 { [ $rc -eq 3 ]; } \
   && ok "unreachable endpoint fails closed (exit 3, no upload)" \
   || bad "expected exit 3 on dead endpoint, got rc=$rc: $out"
+
+# --- Test 9: --allow-public warns and proceeds on a public bucket ----------
+# Same public policy as Test 1, but the explicit override turns refusal into a
+# warning. The interactive layer passes this only after the user consents;
+# headless never does.
+"${AWSM[@]}" s3api put-bucket-policy --bucket "$BUCKET" --policy "file://$WORK/public.json" >/dev/null 2>&1
+out="$("$SYNC" --source "$WORK/src" --bucket "$BUCKET" --endpoint "$ENDPOINT" --prefix "" \
+        --allow-public --report "$rep" 2>&1)"; rc=$?
+ap="$(grep -o '"allowPublic": [a-z]*' "$rep" 2>/dev/null | grep -o '[a-z]*$')"
+{ [ $rc -eq 0 ] && printf '%s' "$out" | grep -q WARNING && [ "$ap" = true ]; } \
+  && ok "--allow-public warns and proceeds on a public bucket (exit 0)" \
+  || bad "--allow-public: rc=$rc warned=$(printf '%s' "$out" | grep -qc WARNING) allowPublic=$ap"
+"${AWSM[@]}" s3api delete-bucket-policy --bucket "$BUCKET" >/dev/null 2>&1   # back to private
+
+# --- Test 10: obstore-pull materializes a restore source root --------------
+# The whole object-storage-specific part of restore: pull the bucket to a dir,
+# then it is byte-for-byte the tree that restore treats like an extracted zip.
+mkdir -p "$WORK/pull"
+"$PULL" --dest "$WORK/pull" --bucket "$BUCKET" --endpoint "$ENDPOINT" --prefix "" >/dev/null 2>&1; rc=$?
+if [ $rc -eq 0 ] && [ -d "$WORK/pull/machines/$HOST" ] \
+   && diff -r "$WORK/src/machines/$HOST" "$WORK/pull/machines/$HOST" >/dev/null 2>&1; then
+  ok "obstore-pull reproduces the mirror as a restore source root"
+else
+  bad "obstore-pull: rc=$rc diff=$(diff -rq "$WORK/src/machines/$HOST" "$WORK/pull/machines/$HOST" 2>&1 | head -3)"
+fi
+
+# --- Test 11: obstore-pull fails closed on an empty prefix -----------------
+# An empty pull must not masquerade as a valid (empty) source root.
+out="$("$PULL" --dest "$WORK/pull2" --bucket "$BUCKET" --endpoint "$ENDPOINT" --prefix "nonexistent" 2>&1)"; rc=$?
+{ [ $rc -eq 3 ]; } \
+  && ok "obstore-pull fails closed when there is nothing to pull (exit 3)" \
+  || bad "expected exit 3 on empty prefix, got rc=$rc: $out"
 
 echo
 printf '==> %d passed, %d failed\n' "$PASS" "$FAIL"

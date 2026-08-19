@@ -38,6 +38,10 @@
 #   --region R        AWS region (default: us-east-1; MinIO ignores it).
 #   --profile P       aws CLI profile to use for authenticated calls.
 #   --dry-run         Plan only: report what would upload/delete, change nothing.
+#   --allow-public    Downgrade the public-bucket refusal to a loud warning and
+#                     proceed anyway. An explicit, per-run override the
+#                     interactive command layer passes only after the user says
+#                     so; a headless run must NEVER pass it. Default: refuse.
 #   --report FILE     Write the JSON report here (default: stdout).
 #   -h, --help        This help.
 #
@@ -45,7 +49,7 @@
 #   0  success (sync applied, or dry-run planned)
 #   2  usage error (bad/missing arguments, missing aws CLI)
 #   3  destination unusable (bucket missing, or credentials cannot reach it)
-#   4  REFUSED: bucket is public (anonymous access is not denied)
+#   4  REFUSED: bucket is public and --allow-public was not given
 #   5  sync failed (aws s3 sync returned non-zero)
 
 set -euo pipefail
@@ -54,18 +58,19 @@ die()  { printf 'obstore-sync: %s\n' "$1" >&2; exit "${2:-2}"; }
 warn() { printf 'obstore-sync: %s\n' "$1" >&2; }
 
 SOURCE="" BUCKET="" PREFIX="" ENDPOINT="" REGION="us-east-1" PROFILE=""
-DRYRUN=0 REPORT=""
+DRYRUN=0 REPORT="" ALLOW_PUBLIC=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --source)   SOURCE="${2:-}"; shift 2 ;;
-    --bucket)   BUCKET="${2:-}"; shift 2 ;;
-    --prefix)   PREFIX="${2:-}"; shift 2 ;;
-    --endpoint) ENDPOINT="${2:-}"; shift 2 ;;
-    --region)   REGION="${2:-}"; shift 2 ;;
-    --profile)  PROFILE="${2:-}"; shift 2 ;;
-    --dry-run)  DRYRUN=1; shift ;;
-    --report)   REPORT="${2:-}"; shift 2 ;;
+    --source)       SOURCE="${2:-}"; shift 2 ;;
+    --bucket)       BUCKET="${2:-}"; shift 2 ;;
+    --prefix)       PREFIX="${2:-}"; shift 2 ;;
+    --endpoint)     ENDPOINT="${2:-}"; shift 2 ;;
+    --region)       REGION="${2:-}"; shift 2 ;;
+    --profile)      PROFILE="${2:-}"; shift 2 ;;
+    --dry-run)      DRYRUN=1; shift ;;
+    --allow-public) ALLOW_PUBLIC=1; shift ;;
+    --report)       REPORT="${2:-}"; shift 2 ;;
     -h|--help)  sed -n '2,60p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)          die "unknown argument: $1" ;;
   esac
@@ -104,9 +109,19 @@ fi
 ANON=(--no-sign-request --region "$REGION")
 [ -n "$ENDPOINT" ] && ANON+=(--endpoint-url "$ENDPOINT")
 
+# A public finding either refuses (default, and always headless) or, with an
+# explicit --allow-public override, warns loudly and proceeds.
+public_finding() {   # $1: what was open
+  if [ "$ALLOW_PUBLIC" -eq 1 ]; then
+    warn "WARNING: bucket '$BUCKET' allows anonymous $1 (it is PUBLIC). Proceeding under --allow-public."
+  else
+    die "REFUSED: bucket '$BUCKET' allows anonymous $1 (it is public). Nothing uploaded. (override: --allow-public)" 4
+  fi
+}
+
 # 2a. Anonymous LIST must fail.
 if aws "${ANON[@]}" s3api list-objects-v2 --bucket "$BUCKET" --max-items 1 >/dev/null 2>&1; then
-  die "REFUSED: bucket '$BUCKET' allows anonymous listing (it is public). Nothing uploaded." 4
+  public_finding "listing"
 fi
 
 # 2b. Anonymous GET of an existing object must fail. Only meaningful if the
@@ -115,7 +130,7 @@ first_key="$(aws "${AWS_COMMON[@]}" s3api list-objects-v2 --bucket "$BUCKET" --m
               --query 'Contents[0].Key' --output text 2>/dev/null || true)"
 if [ -n "$first_key" ] && [ "$first_key" != "None" ]; then
   if aws "${ANON[@]}" s3api head-object --bucket "$BUCKET" --key "$first_key" >/dev/null 2>&1; then
-    die "REFUSED: bucket '$BUCKET' allows anonymous object reads (it is public). Nothing uploaded." 4
+    public_finding "object reads"
   fi
 fi
 
@@ -151,6 +166,7 @@ report="$(cat <<JSON
   "prefix": "$(esc "$PREFIX")",
   "endpoint": "$(esc "$ENDPOINT")",
   "dryRun": $( [ "$DRYRUN" -eq 1 ] && echo true || echo false ),
+  "allowPublic": $( [ "$ALLOW_PUBLIC" -eq 1 ] && echo true || echo false ),
   "uploaded": ${uploaded},
   "deleted": ${deleted}
 }
