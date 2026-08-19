@@ -359,14 +359,15 @@ to ask, it logs the problem and exits cleanly.
 
 - **v3 object storage** (S3, GCS, Alibaba OSS, MinIO): **in progress.** The
   same mirror tree can target an S3-compatible bucket instead of (or alongside)
-  a GitHub repo. The mechanical cores are built and verified end-to-end against
-  a localhost MinIO server (`tests/obstore/`, 11 tests in Docker):
-  `obstore-sync.sh` refuses a public bucket by default (interactive runs can
-  override with a warning, headless never), mirrors with delete-propagation,
-  round-trips byte-for-byte, and honors `--dry-run`; `obstore-pull.sh`
-  materializes a bucket for `restore`, which now reads object storage as a
-  source. Design and the remaining pieces (setup UX, merge from a bucket) are
-  in `docs/object-storage.md`.
+  a GitHub repo. Setup, backup, and restore are wired, and the mechanical cores
+  are verified end-to-end against a localhost MinIO server (`tests/obstore/`,
+  13 tests in Docker): `obstore-setup.sh` creates a bucket, enables versioning,
+  and refuses to certify one that is public; `obstore-sync.sh` refuses a public
+  bucket by default (interactive runs can override with a warning, headless
+  never), mirrors with delete-propagation, round-trips byte-for-byte, and
+  honors `--dry-run`; `obstore-pull.sh` materializes a bucket for `restore`,
+  which reads object storage as a source. Design and the one remaining piece
+  (merge from a bucket) are in `docs/object-storage.md`.
 - **v4 Google Drive**: likely via rclone. Not started.
 
 `merge` (the planned v2) shipped in 1.0.0; see Merge above.

@@ -1,8 +1,9 @@
 # Object-storage target tests
 
-End-to-end tests for `scripts/obstore-sync.sh` (backup) and
-`scripts/obstore-pull.sh` (restore), the mechanical core of the v3
-object-storage target. They run against a **real** S3-compatible server
+End-to-end tests for the mechanical cores of the v3 object-storage target:
+`scripts/obstore-sync.sh` (backup), `scripts/obstore-pull.sh` (restore), and
+`scripts/obstore-setup.sh` (create/harden/certify). They run against a **real**
+S3-compatible server
 (MinIO) started in Docker on `localhost` — no AWS account, no credentials, no
 bytes leave the machine.
 
@@ -47,5 +48,11 @@ Each case is one behavior of the core, asserted against the live server:
     plan/apply logic takes over.
 11. **Pull fails closed** — pulling a prefix with nothing under it aborts
     (exit 3), so an empty download never masquerades as a valid source root.
+12. **Setup create + harden** — `obstore-setup.sh --create` makes a bucket,
+    enables versioning (confirmed live `Status=Enabled`), and certifies it
+    private (exit 0, `private:true`).
+13. **Setup refuses public** — setup will not certify a bucket that still
+    answers anonymous requests (exit 4), so `obstore.json` is never written for
+    a public bucket.
 
-A green run is `11 passed, 0 failed`, exit 0.
+A green run is `13 passed, 0 failed`, exit 0.

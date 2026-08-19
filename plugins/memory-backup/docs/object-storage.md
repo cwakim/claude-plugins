@@ -145,13 +145,33 @@ state, so a machine can back up to either or both. `restore` asks which source
 to read when both exist; a backup run pushes to whichever targets are
 configured.
 
+## Setup
+
+`/backup setup` asks which target to configure (GitHub or object storage). The
+object-storage branch (see `commands/backup.md`) asks provider, bucket, and
+prefix, then runs `scripts/obstore-setup.sh`, the mechanical core:
+
+- **create** the bucket (with `--create`), tolerating "already owned by you";
+- **enable versioning** — the history analog of git. Best-effort: warned, not
+  fatal, where a provider lacks it. (MinIO supports it; the tests confirm the
+  bucket comes back `Status=Enabled`.)
+- **enable Public Access Block** (all four flags) where supported. Best-effort:
+  MinIO and some S3-compatibles lack the API; warned, not fatal.
+- **certify private** — the *fatal* gate. After hardening, the anonymous-access
+  probe must be denied; a bucket that is still public exits 4 and setup stops,
+  writing no config. This is why PAB being unsupported is not fatal: the
+  empirical probe, not any one provider's API, is the real guarantee.
+
+Only on exit 0 does the command write `~/.claude/memory-backup/obstore.json`.
+Setup is covered by `tests/obstore/` (create+harden+certify, and refusal of a
+public bucket).
+
 ## Out of scope for this cut (follow-ups)
 
-- **Setup UX** (the `AskUserQuestion` target picker, bucket creation, Public
-  Access Block + versioning enablement) is specified above and in `backup.md`
-  but not yet a turnkey command flow. `obstore.json` is written by that flow.
 - **`merge` from a bucket.** Restore is wired; merge's cross-machine pull can
   reuse `obstore-pull.sh` (it already fetches every host's subtree by default)
   but its plan wiring is not done here.
-- **Scheduling** reuses the existing headless machinery unchanged once setup
-  lands; nothing target-specific is needed.
+- **Scheduling** already works unchanged: a scheduled headless run backs up
+  every configured target, including object storage, and stays fail-closed on a
+  public bucket (it never passes `--allow-public`). Nothing target-specific is
+  needed.

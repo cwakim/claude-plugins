@@ -17,6 +17,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SYNC="$HERE/../../scripts/obstore-sync.sh"
 PULL="$HERE/../../scripts/obstore-pull.sh"
+SETUP="$HERE/../../scripts/obstore-setup.sh"
 PORT="${PORT:-9010}"
 ENDPOINT="http://127.0.0.1:${PORT}"
 BUCKET="mb-test-$$"
@@ -57,6 +58,7 @@ docker info >/dev/null 2>&1        || skip "docker daemon not running (start Doc
 command -v aws >/dev/null 2>&1     || skip "aws CLI not found"
 [ -x "$SYNC" ] || chmod +x "$SYNC"
 [ -x "$PULL" ] || chmod +x "$PULL"
+[ -x "$SETUP" ] || chmod +x "$SETUP"
 
 echo "==> Starting MinIO on ${ENDPOINT} (container ${CONTAINER})"
 docker run -d --name "$CONTAINER" -p "${PORT}:9000" \
@@ -207,6 +209,29 @@ out="$("$PULL" --dest "$WORK/pull2" --bucket "$BUCKET" --endpoint "$ENDPOINT" --
 { [ $rc -eq 3 ]; } \
   && ok "obstore-pull fails closed when there is nothing to pull (exit 3)" \
   || bad "expected exit 3 on empty prefix, got rc=$rc: $out"
+
+# --- Test 12: setup creates, enables versioning, and certifies private -----
+NEWB="${BUCKET}-setup"
+"$SETUP" --bucket "$NEWB" --create --endpoint "$ENDPOINT" --report "$rep" >/dev/null 2>&1; rc=$?
+priv="$(grep -o '"private": [a-z]*' "$rep" 2>/dev/null | grep -o '[a-z]*$')"
+ver="$(grep -o '"versioning": "[a-z]*"' "$rep" 2>/dev/null | grep -o '[a-z]*"$' | tr -d '"')"
+live_ver="$("${AWSM[@]}" s3api get-bucket-versioning --bucket "$NEWB" --query Status --output text 2>/dev/null)"
+{ [ $rc -eq 0 ] && [ "$priv" = true ] && [ "$ver" = enabled ] && [ "$live_ver" = Enabled ]; } \
+  && ok "setup --create makes a private, versioned bucket (exit 0)" \
+  || bad "setup --create: rc=$rc private=$priv versioning=$ver live=$live_ver"
+
+# --- Test 13: setup refuses to certify a public bucket ---------------------
+# A policy targeting $NEWB (public.json names $BUCKET, so rebuild for $NEWB).
+cat > "$WORK/pub-new.json" <<POLICY
+{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*",
+"Action":["s3:GetObject","s3:ListBucket"],
+"Resource":["arn:aws:s3:::${NEWB}","arn:aws:s3:::${NEWB}/*"]}]}
+POLICY
+"${AWSM[@]}" s3api put-bucket-policy --bucket "$NEWB" --policy "file://$WORK/pub-new.json" >/dev/null 2>&1
+out="$("$SETUP" --bucket "$NEWB" --endpoint "$ENDPOINT" 2>&1)"; rc=$?
+{ [ $rc -eq 4 ] && printf '%s' "$out" | grep -q REFUSED; } \
+  && ok "setup refuses to certify a public bucket (exit 4)" \
+  || bad "expected exit 4 REFUSED on public bucket, got rc=$rc: $out"
 
 echo
 printf '==> %d passed, %d failed\n' "$PASS" "$FAIL"
