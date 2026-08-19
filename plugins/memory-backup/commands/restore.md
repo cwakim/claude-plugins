@@ -1,5 +1,5 @@
 ---
-description: Copy memory stores, handoff notes, plans, and config from a backup (the GitHub mirror or a zip) back onto this machine. Diff-aware and conservative - empty targets restore wholesale, conflicts are asked, nothing local is ever deleted. --dry-run reports the plan and stops.
+description: Copy memory stores, handoff notes, plans, and config from a backup (the GitHub mirror, an object-storage bucket, or a zip) back onto this machine. Diff-aware and conservative - empty targets restore wholesale, conflicts are asked, nothing local is ever deleted. --dry-run reports the plan and stops.
 ---
 
 # Restore (`restore [--dry-run] [path]`)
@@ -30,15 +30,27 @@ reconciles two machines' divergent state.
   least one `machines/<hostname>/` subtree; if not, say so and stop. No
   GitHub involved at all: no clone, no `gh`, no network, and no need for
   `/backup setup` to have ever run.
-- **No `<path>`**: the configured GitHub mirror. If
-  `~/.claude/memory-backup/` is not configured, this is probably the
-  disaster-recovery path: ask for the backup repo (`owner/name`), verify it
-  exists, and clone it into place first. Otherwise `git pull --ff-only` so
-  the mirror is current.
+- **No `<path>`**: a configured backup target. Two kinds can be configured,
+  and both may be at once (see `docs/object-storage.md`):
+  - **GitHub mirror** (`~/.claude/memory-backup/` is a clone with an origin).
+    If it is not configured, this is probably the disaster-recovery path: ask
+    for the backup repo (`owner/name`), verify it exists, and clone it into
+    place first. Otherwise `git pull --ff-only` so the mirror is current. The
+    source root is the clone.
+  - **Object storage** (`~/.claude/memory-backup/obstore.json` exists). Read
+    bucket/prefix/endpoint/region/profile from it and materialize the mirror
+    into a fresh temp directory (`mktemp -d`) with
+    `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-pull.sh --dest <tmp> --bucket ...`.
+    That temp directory is then the source root, handled exactly like an
+    extracted zip: read-only, and cleaned up at the end (step 4) or on any
+    early stop, since this run created it.
+  - **Both configured**: ask via `AskUserQuestion` which to restore from
+    (they can differ — the bucket may be ahead of or behind the git mirror).
+    **Only one** configured: use it without asking.
 
 Every step below treats "the source root" as whichever of these resolved,
-identically: the plan, conflict handling, and report do not care whether
-it came from git or a zip.
+identically: the plan, conflict handling, and report do not care whether it
+came from git, a zip, or an object-storage bucket.
 
 ## Steps
 
@@ -67,8 +79,9 @@ it came from git or a zip.
    added, identical files skipped (count only), and the conflicts with a
    short per-file diff description (which side is newer, what changed).
    **With `--dry-run`, this plan is the result: report it and stop.**
-   Apply nothing, ask nothing, and clean up the temp extraction directory
-   if `<path>` was a zip. Otherwise resolve the conflicts via
+   Apply nothing, ask nothing, and clean up any temp source directory this
+   run created (a zip extraction, or an object-storage pull). Otherwise
+   resolve the conflicts via
    `AskUserQuestion`, batched (multi-select "take the backup version for
    these", keep local for the rest), never one prompt per file, then
    confirm once before applying; when there are no conflicts, that single
@@ -83,11 +96,11 @@ it came from git or a zip.
    the real value from the live source or the credential's issuer, not from
    the backup. If the source root's `manifest.json` records `"scanned":
    false` (a zip made with scanning skipped), say so plainly in the report:
-   these files were never checked, backup or not. If `<path>` was a `.zip`
-   file, remove the temp extraction directory now that the restore is
-   done, and equally on an early stop (an invalid source, or the user
-   aborting); a `<path>` that was already a directory is left untouched,
-   since this run did not create it.
+   these files were never checked, backup or not. Remove any temp source
+   directory this run created (a `.zip` extraction, or an object-storage
+   pull) now that the restore is done, and equally on an early stop (an
+   invalid source, or the user aborting); a `<path>` that was already a
+   directory is left untouched, since this run did not create it.
 
 ## Manual fallback
 

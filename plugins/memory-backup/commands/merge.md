@@ -1,5 +1,5 @@
 ---
-description: Converge this machine's live memory stores, handoff notes, and plans with another machine's mirror (from the GitHub backup repo or a zip). Restore-style plan and conflict prompts plus keep-both, cross-machine path reconciliation, index files rebuilt as a union. Interactive-only.
+description: Converge this machine's live memory stores, handoff notes, and plans with another machine's mirror (from the GitHub backup repo, an object-storage bucket, or a zip). Restore-style plan and conflict prompts plus keep-both, cross-machine path reconciliation, index files rebuilt as a union. Interactive-only.
 ---
 
 # Merge (`merge [--dry-run] [path]`)
@@ -31,20 +31,32 @@ it came from is what restore is for.
 
 ## Resolve the source
 
-Identical to restore's source resolution:
+Identical to restore's source resolution (see `commands/restore.md`), except
+merge wants **every** machine's subtree, not just this host's:
 
 - **`<path>` given**: a zip made by `zip <path>`, or its already-extracted
   folder. A `.zip` file is extracted into a fresh temp directory
   (`mktemp -d`); a directory is used directly. Verify the source root
   contains at least one `machines/<hostname>/` subtree; if not, say so and
   stop. No GitHub, no `gh`, no network.
-- **No `<path>`**: the configured GitHub mirror; `git pull --ff-only` first
-  so it is current. If `~/.claude/memory-backup/` is not configured, say so
-  and stop: merge presumes an established mirror (for disaster recovery
-  onto a fresh machine, use `restore`).
+- **No `<path>`**: a configured backup target; both kinds may exist.
+  - **GitHub mirror** (`~/.claude/memory-backup/` clone): `git pull
+    --ff-only` first so it is current. The source root is the clone.
+  - **Object storage** (`~/.claude/memory-backup/obstore.json`): materialize
+    it into a fresh temp directory with
+    `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-pull.sh --dest <tmp> --bucket ...`
+    reading bucket/prefix/endpoint/region/profile from the config. Pass **no**
+    `--host`, so the whole `machines/` tree (every machine) comes down, which
+    is what merge reads across. The temp dir is then the source root, handled
+    exactly like an extracted zip.
+  - **Both configured**: ask via `AskUserQuestion` which to merge from. **Only
+    one**: use it without asking.
+  If nothing is configured, say so and stop: merge presumes an established
+  mirror (for disaster recovery onto a fresh machine, use `restore`).
 
-Clean up any temp extraction directory when the run ends, including early
-stops (an invalid source, or the user aborting).
+Clean up any temp source directory this run created (a zip extraction or an
+object-storage pull) when the run ends, including early stops (an invalid
+source, or the user aborting).
 
 ## Steps
 
