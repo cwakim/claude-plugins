@@ -31,8 +31,10 @@ The mirror tree, naming rules, and invariants live in
 
 - *(none)* runs a backup. If nothing is configured yet, run **Setup** first,
   then continue into the backup.
-- **`setup`** (re)configures: choose or create the GitHub repo, apply its
-  protections, clone the staging copy.
+- **`setup`** is the single command for all target configuration: **add** a
+  target (GitHub repo or object-storage bucket), **reconfigure** (re-point) an
+  existing one, or **remove** one. Run it again anytime to change anything;
+  there is no separate reconfigure command.
 - **`status`** reports the configuration, the remote repo and its visibility,
   and when the last backup landed. No changes.
 - **`schedule`** installs a local scheduled job (cron, or launchd on macOS)
@@ -78,16 +80,30 @@ against MinIO in Docker).
 
 ## Setup (`setup`, or first run when unconfigured)
 
+`setup` is the one command for **all** target configuration: add a target,
+reconfigure (re-point) an existing one, or remove one. There is no separate
+reconfigure command; running `setup` again is how you change anything.
+
 "Configured" means at least one target exists: the GitHub staging clone
 (`~/.claude/memory-backup/` with an origin remote) or an object-storage config
 (`~/.claude/memory-backup/obstore.json`). A first run with neither triggers
-setup; `setup` can also add a second target to an already-configured machine
-(both may coexist, writing disjoint destinations).
+setup; on an already-configured machine, `setup` can add the second target
+(both may coexist, writing disjoint destinations), re-point either one, or drop
+one.
 
-First ask via `AskUserQuestion` which target to configure: **GitHub repo** (the
-default, below) or **object storage** (an S3-compatible bucket). If a target of
-that kind is already configured, show it and ask whether to keep or
-reconfigure. Then follow the matching branch.
+Ask via `AskUserQuestion` what to do, building the options from what is already
+configured:
+
+- **Add / configure** the target that is not yet set up (GitHub, or object
+  storage). Follow the matching branch below.
+- **Reconfigure** a configured target: re-point it. For GitHub this rewires the
+  staging clone to a different repo; for object storage it rewrites
+  `obstore.json` to a different bucket. Same branch as add.
+- **Remove** a configured target (only offered when it exists): see **Remove a
+  target** below.
+
+Then follow the matching branch. Reconfiguring never deletes the remote repo or
+the bucket; it only changes this machine's wiring.
 
 ### GitHub target
 
@@ -177,6 +193,32 @@ resolution and never enter the mirror. See `docs/object-storage.md`.
    does: list what will be uploaded and state plainly it leaves the machine for
    the bucket. Proceed only on an explicit yes, then run the backup flow below,
    which builds and secret-scans the tree and calls `obstore-sync.sh`.
+
+### Remove a target
+
+Removing a target stops this machine from backing up to it. It is deliberately
+conservative: it only ever deletes **local wiring**, never the remote repo, the
+bucket, or their contents (both keep every version already pushed). Offered only
+for a target that is actually configured, and never removes the last remaining
+one without a clear warning that the machine would then back up nowhere.
+
+- **Remove the object-storage target:** confirm, then delete
+  `~/.claude/memory-backup/obstore.json` (and any leftover
+  `~/.claude/memory-backup/staging/`). The bucket and every object in it are
+  left untouched; re-add later by running `setup` again. State plainly that
+  scheduled runs will no longer push to the bucket.
+- **Remove the GitHub target:** this is heavier, because the staging clone
+  *is* the configuration and also holds the local copy of the mirror. Warn
+  clearly, then (on an explicit yes) delete `~/.claude/memory-backup/`. The
+  GitHub repo and its full history are **not** touched — only this machine's
+  clone. Re-add later with `setup`, which re-clones. If object storage is
+  configured via `obstore.json` inside that directory, note that removing the
+  clone also drops the object-storage config; offer to keep a copy of
+  `obstore.json` first.
+
+After removing, report what remains configured (or that the machine now backs
+up nowhere), and remind that a scheduled job, if any, still runs until
+`unschedule` — a job with no targets left just exits cleanly.
 
 ## Backup run
 
@@ -409,9 +451,7 @@ rm -f ~/Library/LaunchAgents/local.memory-backup.plist
 - **Never force-push.** The command touches only `main` and its own
   `backup/*` branches, and resolves nothing with force.
 - Roadmap: object-storage targets (S3, GCS, Alibaba OSS, MinIO) are **v3** —
-  setup, backup, restore, and merge are all wired, and their cores
-  (`scripts/obstore-{setup,sync,pull}.sh`) are tested end-to-end against a
-  localhost MinIO (`tests/obstore/`, 14 tests). Next task: a plugin-wide
-  reconfigure command (change/drop a target uniformly across both git and
-  object storage; see `docs/object-storage.md`). Google Drive via rclone is v4,
-  not started.
+  setup (add/reconfigure/remove), backup, restore, and merge are all wired, and
+  the cores (`scripts/obstore-{setup,sync,pull}.sh`) are tested end-to-end
+  against a localhost MinIO (`tests/obstore/`, 15 tests) and dogfooded live.
+  Google Drive via rclone is v4, not started.
