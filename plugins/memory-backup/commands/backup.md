@@ -91,16 +91,28 @@ setup; on an already-configured machine, `setup` can add the second target
 (both may coexist, writing disjoint destinations), re-point either one, or drop
 one.
 
-Ask via `AskUserQuestion` what to do, building the options from what is already
-configured:
+**Ask in two stages, never as one flat action×target list.** A combined list
+("re-point object storage / remove object storage / re-point GitHub / remove
+GitHub") is confusing; ask the *action* first, then the *target*, and skip
+either question when there is only one sensible answer:
 
-- **Add / configure** the target that is not yet set up (GitHub, or object
-  storage). Follow the matching branch below.
-- **Reconfigure** a configured target: re-point it. For GitHub this rewires the
-  staging clone to a different repo; for object storage it rewrites
-  `obstore.json` to a different bucket. Same branch as add.
-- **Remove** a configured target (only offered when it exists): see **Remove a
-  target** below.
+1. **Stage one — the action.** Ask via `AskUserQuestion`, offering only the
+   actions that are actually possible given what is configured:
+   - **Add a target** — offered only when a target is not yet configured.
+   - **Reconfigure a target** — offered only when at least one is configured.
+   - **Remove a target** — offered only when at least one is configured.
+   If only one action is possible (e.g. nothing configured yet → only *add*),
+   skip this question and take it.
+2. **Stage two — which target.** Ask only when the chosen action has more than
+   one candidate; otherwise proceed with the single one, naming it:
+   - **Add** → the unconfigured target (if both are unconfigured, ask which).
+   - **Reconfigure** / **Remove** → ask which only when both are configured;
+     with one configured, it is the target, no question.
+
+Then follow the matching branch: **Reconfigure** re-points an existing target
+(GitHub rewires the staging clone to a different repo; object storage rewrites
+`obstore.json` to a different bucket) and uses the same branch as **Add**;
+**Remove** is the **Remove a target** section below.
 
 Then follow the matching branch. Reconfiguring never deletes the remote repo or
 the bucket; it only changes this machine's wiring.
