@@ -357,10 +357,15 @@ to ask, it logs the problem and exits cleanly.
 
 ## Roadmap
 
-Planned, not built:
-
-- **v3 object storage**: S3, GCS, Alibaba OSS.
-- **v4 Google Drive**: likely via rclone.
+- **v3 object storage** (S3, GCS, Alibaba OSS, MinIO): **in progress.** The
+  same mirror tree can target an S3-compatible bucket instead of a GitHub repo.
+  The mechanical sync core (`scripts/obstore-sync.sh`) is built and verified
+  end-to-end against a localhost MinIO server (`tests/obstore/`, run in Docker):
+  it fails closed unless the bucket is private, mirrors with delete-propagation,
+  round-trips byte-for-byte, and honors `--dry-run`. Design and the remaining
+  pieces (setup UX, restore/merge from a bucket) are in
+  `docs/object-storage.md`.
+- **v4 Google Drive**: likely via rclone. Not started.
 
 `merge` (the planned v2) shipped in 1.0.0; see Merge above.
 

@@ -55,6 +55,22 @@ back up into the same repo without ever colliding (backup per machine; use
 `merge` to converge two machines deliberately). The full tree and the
 name-derivation rules are in `docs/layout.md`.
 
+## Object-storage target (v3)
+
+The default target is a private GitHub repo (everything below). A backup can
+instead mirror the **same tree** to an S3-compatible object store (AWS S3, GCS
+via its S3-interop endpoint, Alibaba OSS, or a self-hosted MinIO). The mirror
+layout, naming, manifest, and mandatory secret scan are identical; only the
+destination and the history mechanism differ. When
+`~/.claude/memory-backup/obstore.json` exists, this command builds and
+secret-scans the tree into `~/.claude/memory-backup/staging/` exactly as for
+git, then hands it to `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-sync.sh`, which
+verifies the bucket is private (fail-closed) and mirrors it with
+delete-propagation. Read `${CLAUDE_PLUGIN_ROOT}/docs/object-storage.md` for the
+destination model, the privacy gate, versioning-as-history, and what is still a
+follow-up. The sync core is covered by an end-to-end localhost test
+(`tests/obstore/`, run against MinIO in Docker).
+
 ## Setup (`setup`, or first run when unconfigured)
 
 1. Check `gh auth status`. If it fails, stop and tell the user to run
@@ -292,5 +308,8 @@ rm -f ~/Library/LaunchAgents/local.memory-backup.plist
   back in the background.
 - **Never force-push.** The command touches only `main` and its own
   `backup/*` branches, and resolves nothing with force.
-- Roadmap (planned, not built): object storage targets such as S3, GCS, and
-  Alibaba OSS (v3); Google Drive via rclone (v4).
+- Roadmap: object-storage targets (S3, GCS, Alibaba OSS, MinIO) are **v3, in
+  progress** — the sync core (`scripts/obstore-sync.sh`) is built and tested
+  end-to-end against a localhost MinIO (`tests/obstore/`); the setup UX and
+  restore/merge-from-bucket wiring are the remaining pieces (see
+  `docs/object-storage.md`). Google Drive via rclone is v4, not started.
