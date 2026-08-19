@@ -233,6 +233,18 @@ out="$("$SETUP" --bucket "$NEWB" --endpoint "$ENDPOINT" 2>&1)"; rc=$?
   && ok "setup refuses to certify a public bucket (exit 4)" \
   || bad "expected exit 4 REFUSED on public bucket, got rc=$rc: $out"
 
+# --- Test 14: pull with no --host brings down every machine (merge's need) --
+# merge reads across all machines' subtrees, so a full pull must materialize
+# them all, not just this host's.
+mkdir -p "$WORK/src/machines/otherhost/memories/sites-work"
+printf 'a memory from the other laptop\n' > "$WORK/src/machines/otherhost/memories/sites-work/note.md"
+"$SYNC" --source "$WORK/src" --bucket "$BUCKET" --endpoint "$ENDPOINT" --prefix "" >/dev/null 2>&1
+rm -rf "$WORK/pullall"; mkdir -p "$WORK/pullall"
+"$PULL" --dest "$WORK/pullall" --bucket "$BUCKET" --endpoint "$ENDPOINT" --prefix "" >/dev/null 2>&1
+{ [ -d "$WORK/pullall/machines/$HOST" ] && [ -d "$WORK/pullall/machines/otherhost" ]; } \
+  && ok "full pull materializes every machine's subtree (merge source)" \
+  || bad "full pull missing a host: $(ls "$WORK/pullall/machines" 2>&1)"
+
 echo
 printf '==> %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

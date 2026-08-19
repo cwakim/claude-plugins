@@ -408,9 +408,10 @@ rm -f ~/Library/LaunchAgents/local.memory-backup.plist
   back in the background.
 - **Never force-push.** The command touches only `main` and its own
   `backup/*` branches, and resolves nothing with force.
-- Roadmap: object-storage targets (S3, GCS, Alibaba OSS, MinIO) are **v3, in
-  progress** — setup, backup, and restore are wired and their cores
+- Roadmap: object-storage targets (S3, GCS, Alibaba OSS, MinIO) are **v3** —
+  setup, backup, restore, and merge are all wired, and their cores
   (`scripts/obstore-{setup,sync,pull}.sh`) are tested end-to-end against a
-  localhost MinIO (`tests/obstore/`, 13 tests); `merge`-from-bucket is the one
-  remaining piece (see `docs/object-storage.md`). Google Drive via rclone is
-  v4, not started.
+  localhost MinIO (`tests/obstore/`, 14 tests). Next task: a plugin-wide
+  reconfigure command (change/drop a target uniformly across both git and
+  object storage; see `docs/object-storage.md`). Google Drive via rclone is v4,
+  not started.

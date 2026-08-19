@@ -166,12 +166,22 @@ Only on exit 0 does the command write `~/.claude/memory-backup/obstore.json`.
 Setup is covered by `tests/obstore/` (create+harden+certify, and refusal of a
 public bucket).
 
-## Out of scope for this cut (follow-ups)
+## Merge from a bucket
 
-- **`merge` from a bucket.** Restore is wired; merge's cross-machine pull can
-  reuse `obstore-pull.sh` (it already fetches every host's subtree by default)
-  but its plan wiring is not done here.
-- **Scheduling** already works unchanged: a scheduled headless run backs up
-  every configured target, including object storage, and stays fail-closed on a
-  public bucket (it never passes `--allow-public`). Nothing target-specific is
-  needed.
+`merge` reads an object-storage bucket the same way `restore` does, materializing
+it with `obstore-pull.sh` into a temp source root — but with **no** `--host`, so
+the whole `machines/` tree comes down and merge can read across every machine's
+subtree. Both-targets-configured asks which to merge from. The multi-host pull
+merge depends on is covered by `tests/obstore/`. See `commands/merge.md`.
+
+With that, setup, backup, restore, and merge all support object storage, and a
+scheduled headless run backs up every configured target and stays fail-closed on
+a public bucket (it never passes `--allow-public`).
+
+## Follow-ups (beyond v3)
+
+- **A plugin-wide reconfigure command.** Today changing a target (a different
+  repo, a different bucket, rotating an endpoint or profile) means re-running
+  `setup` or editing/deleting the clone or `obstore.json` by hand. A dedicated
+  reconfigure flow — list current targets, edit one, drop one — would cover both
+  the git and object-storage targets uniformly. Tracked as the next task.
