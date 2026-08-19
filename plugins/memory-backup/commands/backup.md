@@ -71,7 +71,7 @@ verifies the bucket is private and mirrors it with delete-propagation. On a
 public bucket the script refuses by default (exit 4); an **interactive** run
 warns and, only on the user's explicit yes, re-invokes with `--allow-public`,
 while a **headless** run stays refused (nobody to consent). Both targets may be
-configured at once — they write disjoint destinations — and `restore` reads a
+configured at once (they write disjoint destinations) and `restore` reads a
 bucket via `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-pull.sh`. Read
 `${CLAUDE_PLUGIN_ROOT}/docs/object-storage.md` for the destination model, the
 privacy gate, versioning-as-history, and the remaining follow-ups. The sync and
@@ -105,14 +105,14 @@ one.
 GitHub") is confusing; ask the *action* first, then the *target*, and skip
 either question when there is only one sensible answer:
 
-1. **Stage one — the action.** Ask via `AskUserQuestion`, offering only the
+1. **Stage one: the action.** Ask via `AskUserQuestion`, offering only the
    actions that are actually possible given what is configured:
-   - **Add a target** — offered only when a target is not yet configured.
-   - **Reconfigure a target** — offered only when at least one is configured.
-   - **Remove a target** — offered only when at least one is configured.
+   - **Add a target**: offered only when a target is not yet configured.
+   - **Reconfigure a target**: offered only when at least one is configured.
+   - **Remove a target**: offered only when at least one is configured.
    If only one action is possible (e.g. nothing configured yet → only *add*),
    skip this question and take it.
-2. **Stage two — which target.** Ask only when the chosen action has more than
+2. **Stage two: which target.** Ask only when the chosen action has more than
    one candidate; otherwise proceed with the single one, naming it:
    - **Add** → the unconfigured target (if both are unconfigured, ask which).
    - **Reconfigure** / **Remove** → ask which only when both are configured;
@@ -146,7 +146,7 @@ the bucket; it only changes this machine's wiring.
    `git config --local commit.gpgsign false` in the clone: this repo holds
    only backup commits from this plugin, never hand-authored work, so
    signing adds nothing, and a headless run (`claude -p`, no TTY) cannot
-   satisfy a GPG passphrase prompt — the scoping is local to this one clone,
+   satisfy a GPG passphrase prompt. The scoping is local to this one clone,
    never the user's global git config, so signing elsewhere on the machine
    is untouched. Seed `README.md` (what the repo contains, a warning that it
    must stay private, `/backup restore` as the recovery path plus the manual
@@ -185,27 +185,27 @@ Configures an S3-compatible bucket (AWS S3, GCS via its S3-interop endpoint,
 Alibaba OSS, or MinIO). No `gh`; credentials come from the standard `aws` CLI
 resolution and never enter the mirror. See `docs/object-storage.md`.
 
-1. **Provider** — ask via `AskUserQuestion`: AWS S3, GCS, Alibaba OSS, or
+1. **Provider**: ask via `AskUserQuestion`: AWS S3, GCS, Alibaba OSS, or
    MinIO/other. This fixes the endpoint: none for AWS; `--endpoint`
    `https://storage.googleapis.com` for GCS; `https://oss-<region>.aliyuncs.com`
    for OSS; a user-supplied URL (e.g. `http://localhost:9000`) for MinIO. Ask
    for the `aws` profile if the default credentials are not the right ones, and
    the region (default `us-east-1`; MinIO ignores it).
-2. **Bucket and prefix** — ask for the bucket name and an optional key prefix
+2. **Bucket and prefix**: ask for the bucket name and an optional key prefix
    (empty puts `machines/` at the bucket root). Ask whether to **create** a new
    bucket or use an **existing** one.
-3. **Create, harden, and certify private** — run
+3. **Create, harden, and certify private**: run
    `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-setup.sh --bucket <name>
    [--create] [--prefix <k>] [--endpoint <url>] [--region <r>]
    [--profile <p>] --report <tmp>`. It creates the bucket if `--create`,
    enables versioning (the history analog of git) and Public Access Block where
    the provider supports them (best-effort, warned otherwise), and then runs
    the anonymous-access probe. **If the bucket is still public it exits 4 and
-   setup stops** — surface the message; do not write any config. Exit 3 means
+   setup stops**: surface the message; do not write any config. Exit 3 means
    the bucket is unreachable or could not be created; stop and show why.
    Relay the report's `versioning`/`publicAccessBlock` state so the user knows
    whether history retention is actually on.
-4. **Persist the config** — only on exit 0, write
+4. **Persist the config**: only on exit 0, write
    `~/.claude/memory-backup/obstore.json` with the bucket, prefix, endpoint,
    region, and profile (create the directory if this is the machine's first
    target). That file existing *is* the object-storage configuration, the way
@@ -231,7 +231,7 @@ one without a clear warning that the machine would then back up nowhere.
 - **Remove the GitHub target:** this is heavier, because the staging clone
   *is* the configuration and also holds the local copy of the mirror. Warn
   clearly, then (on an explicit yes) delete `~/.claude/memory-backup/`. The
-  GitHub repo and its full history are **not** touched — only this machine's
+  GitHub repo and its full history are **not** touched: only this machine's
   clone. Re-add later with `setup`, which re-clones. If object storage is
   configured via `obstore.json` inside that directory, note that removing the
   clone also drops the object-storage config; offer to keep a copy of
@@ -239,7 +239,7 @@ one without a clear warning that the machine would then back up nowhere.
 
 After removing, report what remains configured (or that the machine now backs
 up nowhere), and remind that a scheduled job, if any, still runs until
-`unschedule` — a job with no targets left just exits cleanly.
+`unschedule`: a job with no targets left just exits cleanly.
 
 ## Backup run
 
@@ -333,10 +333,10 @@ differs.
    bucket is private and mirrors with delete-propagation.
    - **Exit 0**: report objects uploaded/deleted from the JSON report; an
      all-zero run is the "no changes since last backup" no-op.
-   - **Exit 4 (public bucket)**: **interactive** — warn and offer proceed /
+   - **Exit 4 (public bucket)**: **interactive**: warn and offer proceed /
      fix / abort (see `docs/object-storage.md`); on "proceed" re-run with
      `--allow-public`, on "fix" make the bucket private and re-run.
-     **Headless** — do not retry; report the refusal loudly and leave the
+     **Headless**: do not retry; report the refusal loudly and leave the
      bucket untouched. A scheduled run never passes `--allow-public`.
    - **Exit 3/5**: report the failure (unreachable/credentials, or sync error);
      an incomplete push is not a completed backup.
@@ -471,7 +471,7 @@ rm -f ~/Library/LaunchAgents/local.memory-backup.plist
   back in the background.
 - **Never force-push.** The command touches only `main` and its own
   `backup/*` branches, and resolves nothing with force.
-- Roadmap: object-storage targets (S3, GCS, Alibaba OSS, MinIO) are **v3** —
+- Roadmap: object-storage targets (S3, GCS, Alibaba OSS, MinIO) are **v3**:
   setup (add/reconfigure/remove), backup, restore, and merge are all wired, and
   the cores (`scripts/obstore-{setup,sync,pull}.sh`) are tested end-to-end
   against a localhost MinIO (`tests/obstore/`, 15 tests) and dogfooded live.

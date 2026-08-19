@@ -73,7 +73,7 @@ conversation, treat those as protected too.
 
 7. **On confirmation, delete:**
    - Local: `git branch -d <branch>` for each. `-d` refuses to delete an unmerged
-     branch, which is the safety net — if one errors as "not fully merged," skip it and
+     branch, which is the safety net: if one errors as "not fully merged," skip it and
      report it rather than forcing.
    - Remote (unless `--local-only`): `git push origin --delete <branch>` for each.
 

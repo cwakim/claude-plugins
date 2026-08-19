@@ -32,16 +32,16 @@ records the destination:
     "profile": "..." }
 ```
 
-- **bucket** / **prefix** — the tree is mirrored to
+- **bucket** / **prefix**: the tree is mirrored to
   `s3://<bucket>/<prefix>/machines/<hostname>/...`. An empty prefix puts
   `machines/` at the bucket root. The per-hostname namespacing is unchanged, so
   any number of machines share one bucket without colliding, exactly as they
   share one repo.
-- **endpoint** — omitted for real AWS S3. Set for everything else:
+- **endpoint**: omitted for real AWS S3. Set for everything else:
   - MinIO: `http://host:9000`
   - GCS (S3-interop): `https://storage.googleapis.com`
   - Alibaba OSS: `https://oss-<region>.aliyuncs.com`
-- **region** / **profile** — passed to the `aws` CLI; the profile selects which
+- **region** / **profile**: passed to the `aws` CLI; the profile selects which
   credentials authenticate the upload.
 
 Credentials come from the standard `aws` CLI resolution (env, profile, instance
@@ -51,7 +51,7 @@ token, **never enter the mirror**.
 ## How a run lands
 
 1. Build the mirror tree into a staging dir (`~/.claude/memory-backup/staging/`)
-   exactly as the git flow builds `machines/<hostname>/` — same sources, same
+   exactly as the git flow builds `machines/<hostname>/`: same sources, same
    naming, same deletion propagation within the tree.
 2. **Secret-scan every mirrored file** per `secret-scan.md`. This is unchanged
    and mandatory: interactive runs ask per finding, headless runs redact and
@@ -89,7 +89,7 @@ target upholds the same boundary with two checks:
 **What a public finding does depends on who is running**, mirroring how the
 secret scan splits interactive from headless:
 
-- **Interactive:** the command warns loudly and asks — **proceed anyway**,
+- **Interactive:** the command warns loudly and asks: **proceed anyway**,
   **fix it** (make the bucket private: remove the public policy / enable Public
   Access Block, then re-verify), or **abort**. A public bucket is sometimes a
   mistake and sometimes a deliberate call; the person at the keyboard makes it.
@@ -97,7 +97,7 @@ secret scan splits interactive from headless:
   per-run, auditable override (it shows up as `"allowPublic": true` in the
   report).
 - **Headless (cron/launchd):** there is nobody to warn, so the run **fails
-  closed** — REFUSED (exit 4), nothing uploaded. A scheduled job never passes
+  closed**: REFUSED (exit 4), nothing uploaded. A scheduled job never passes
   `--allow-public`; it will not push your memories to a public bucket
   unattended just because an interactive run might have chosen to.
 
@@ -128,7 +128,7 @@ semantics differ.
 `restore` reads an object-storage bucket as a source: when
 `obstore.json` exists (and no zip `<path>` is given), it materializes the
 mirror into a temp directory with `scripts/obstore-pull.sh` and then runs the
-**existing** diff-aware plan/conflict/apply logic unchanged — the temp
+**existing** diff-aware plan/conflict/apply logic unchanged: the temp
 directory is just another "source root", handled exactly like an extracted zip
 (read-only, cleaned up at the end). `obstore-pull.sh` is read-only against the
 bucket and fails closed if there is nothing to pull, so an empty download can
@@ -152,12 +152,12 @@ object-storage branch (see `commands/backup.md`) asks provider, bucket, and
 prefix, then runs `scripts/obstore-setup.sh`, the mechanical core:
 
 - **create** the bucket (with `--create`), tolerating "already owned by you";
-- **enable versioning** — the history analog of git. Best-effort: warned, not
+- **enable versioning**: the history analog of git. Best-effort: warned, not
   fatal, where a provider lacks it. (MinIO supports it; the tests confirm the
   bucket comes back `Status=Enabled`.)
 - **enable Public Access Block** (all four flags) where supported. Best-effort:
   MinIO and some S3-compatibles lack the API; warned, not fatal.
-- **certify private** — the *fatal* gate. After hardening, the anonymous-access
+- **certify private**: the *fatal* gate. After hardening, the anonymous-access
   probe must be denied; a bucket that is still public exits 4 and setup stops,
   writing no config. This is why PAB being unsupported is not fatal: the
   empirical probe, not any one provider's API, is the real guarantee.
@@ -169,7 +169,7 @@ public bucket).
 ## Merge from a bucket
 
 `merge` reads an object-storage bucket the same way `restore` does, materializing
-it with `obstore-pull.sh` into a temp source root — but with **no** `--host`, so
+it with `obstore-pull.sh` into a temp source root, but with **no** `--host`, so
 the whole `machines/` tree comes down and merge can read across every machine's
 subtree. Both-targets-configured asks which to merge from. The multi-host pull
 merge depends on is covered by `tests/obstore/`. See `commands/merge.md`.

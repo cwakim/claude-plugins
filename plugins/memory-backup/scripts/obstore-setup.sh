@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# obstore-setup.sh — create (optional) and harden an S3-compatible bucket so it
+# obstore-setup.sh: create (optional) and harden an S3-compatible bucket so it
 # is a safe memory-backup destination, then certify it is private. The
 # mechanical core of the object-storage `setup` flow: the Claude-driven command
 # asks the questions and writes `obstore.json`; this script does the
@@ -9,13 +9,13 @@
 #
 # What "harden" means, mirroring the git target's "private repo + branch
 # protection":
-#   * versioning ON        — the history analog of git (overwritten/deleted
+#   * versioning ON        : the history analog of git (overwritten/deleted
 #                            objects keep prior versions). Best-effort: warned,
 #                            not fatal, where a provider lacks it.
-#   * Public Access Block  — all four flags, on providers that support it.
+#   * Public Access Block  : all four flags, on providers that support it.
 #                            Best-effort: MinIO and some S3-compatibles lack the
 #                            API; that is warned, not fatal.
-#   * privacy probe        — the FATAL gate. After hardening, an anonymous,
+#   * privacy probe        : the FATAL gate. After hardening, an anonymous,
 #                            unsigned request must be denied. If the bucket is
 #                            still public (e.g. a pre-existing public policy on
 #                            an existing bucket), setup is REFUSED (exit 4): we
@@ -96,7 +96,7 @@ if aws "${AWS_COMMON[@]}" s3api put-public-access-block --bucket "$BUCKET" \
 fi
 [ "$pab" = "set" ] || warn "Public Access Block is unavailable on this provider; relying on the anonymous-access probe below."
 
-# --- 4. Privacy probe — the FATAL gate --------------------------------------
+# --- 4. Privacy probe: the FATAL gate ----------------------------------------
 is_public=0
 if aws "${ANON[@]}" s3api list-objects-v2 --bucket "$BUCKET" --max-items 1 >/dev/null 2>&1; then
   is_public=1

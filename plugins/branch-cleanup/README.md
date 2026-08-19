@@ -4,7 +4,7 @@ One command for the housekeeping after merges land: delete the branches that are
 already merged into a base branch, locally and on the remote, without touching
 anything still in flight.
 
-- **`/cleanup`** — list the branches fully merged into the base, show them, confirm,
+- **`/cleanup`**: list the branches fully merged into the base, show them, confirm,
   then delete them local + remote and report what was kept.
 
 ## Why
@@ -14,12 +14,12 @@ commits already live in `main`. Deleting them by hand is fiddly and easy to get 
 the dangerous direction (a stray `-D` on something that was not actually merged). This
 command does only the safe version:
 
-- **Merged-only** — uses `git branch -d`, which refuses to delete an unmerged branch. It
+- **Merged-only**: uses `git branch -d`, which refuses to delete an unmerged branch. It
   physically cannot drop work that has not landed.
-- **Protected branches** — the base, the branch you are on, and a keep-list of long-lived
+- **Protected branches**: the base, the branch you are on, and a keep-list of long-lived
   branches (`main`, `master`, `develop`, `development`, `preview`, `staging`,
   `production`, `release`) are never touched.
-- **Confirmed** — it always shows the full local + remote list and waits for a yes before
+- **Confirmed**: it always shows the full local + remote list and waits for a yes before
   deleting anything.
 
 ## Usage
@@ -37,7 +37,7 @@ falling back to `main` then `master`). Pass a branch name to override it.
 ## Notes
 
 - Squash- and rebase-merged branches do **not** look merged to git (the commit SHAs
-  differ), so they are deliberately left alone — cleaning those is a riskier judgment
+  differ), so they are deliberately left alone. Cleaning those is a riskier judgment
   call this command does not make.
 - Local and remote merged-state are computed independently, so a branch can be removed
   from one and kept in the other.

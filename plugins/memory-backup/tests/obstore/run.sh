@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# run.sh — end-to-end test for obstore-sync.sh against a real S3-compatible
+# run.sh: end-to-end test for obstore-sync.sh against a real S3-compatible
 # server (MinIO) running on localhost in Docker. No AWS account, no network
 # egress, nothing leaves the machine. Proves the v3 object-storage core does
 # what it claims: verifies privacy, mirrors, propagates deletes, round-trips,

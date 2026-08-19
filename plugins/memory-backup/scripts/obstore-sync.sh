@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# obstore-sync.sh — mirror a prepared memory-backup tree to an S3-compatible
+# obstore-sync.sh: mirror a prepared memory-backup tree to an S3-compatible
 # object store (AWS S3, GCS via its S3-interop endpoint, Alibaba OSS, or a
 # local MinIO). The mechanical core of the memory-backup v3 object-storage
 # target: the Claude-driven command builds and secret-scans the tree, then
@@ -100,7 +100,7 @@ if ! head_err="$(aws "${AWS_COMMON[@]}" s3api head-bucket --bucket "$BUCKET" 2>&
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Privacy gate — anonymous access MUST be denied. We probe unsigned, so the
+# 2. Privacy gate: anonymous access MUST be denied. We probe unsigned, so the
 #    check is endpoint-agnostic and works identically on AWS and MinIO. If an
 #    unauthenticated caller can LIST or GET, the bucket is public: refuse.
 #    (On real AWS the setup step additionally enforces the account/bucket
