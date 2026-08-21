@@ -64,7 +64,7 @@ instead mirror the **same tree** to an S3-compatible object store (AWS S3, GCS
 via its S3-interop endpoint, Alibaba OSS, or a self-hosted MinIO). The mirror
 layout, naming, manifest, and mandatory secret scan are identical; only the
 destination and the history mechanism differ. When
-`~/.claude/memory-backup/obstore.json` exists, this command builds and
+`~/.claude/memory-backup-obstore.json` exists, this command builds and
 secret-scans the tree into `~/.claude/memory-backup/staging/` exactly as for
 git, then hands it to `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-sync.sh`, which
 verifies the bucket is private and mirrors it with delete-propagation. On a
@@ -95,7 +95,7 @@ between stages is not.
 
 "Configured" means at least one target exists: the GitHub staging clone
 (`~/.claude/memory-backup/` with an origin remote) or an object-storage config
-(`~/.claude/memory-backup/obstore.json`). A first run with neither triggers
+(`~/.claude/memory-backup-obstore.json`). A first run with neither triggers
 setup; on an already-configured machine, `setup` can add the second target
 (both may coexist, writing disjoint destinations), re-point either one, or drop
 one.
@@ -206,10 +206,11 @@ resolution and never enter the mirror. See `docs/object-storage.md`.
    Relay the report's `versioning`/`publicAccessBlock` state so the user knows
    whether history retention is actually on.
 4. **Persist the config**: only on exit 0, write
-   `~/.claude/memory-backup/obstore.json` with the bucket, prefix, endpoint,
-   region, and profile (create the directory if this is the machine's first
-   target). That file existing *is* the object-storage configuration, the way
-   the clone-with-an-origin is the GitHub one.
+   `~/.claude/memory-backup-obstore.json` with the bucket, prefix, endpoint,
+   region, and profile. It lives beside, not inside, the GitHub staging clone
+   so the two targets share no files. That file existing *is* the
+   object-storage configuration, the way the clone-with-an-origin is the
+   GitHub one.
 5. Before the first upload, confirm loudly, once, exactly as the GitHub branch
    does: list what will be uploaded and state plainly it leaves the machine for
    the bucket. Proceed only on an explicit yes, then run the backup flow below,
@@ -224,7 +225,7 @@ for a target that is actually configured, and never removes the last remaining
 one without a clear warning that the machine would then back up nowhere.
 
 - **Remove the object-storage target:** confirm, then delete
-  `~/.claude/memory-backup/obstore.json` (and any leftover
+  `~/.claude/memory-backup-obstore.json` (and any leftover
   `~/.claude/memory-backup/staging/`). The bucket and every object in it are
   left untouched; re-add later by running `setup` again. State plainly that
   scheduled runs will no longer push to the bucket.
@@ -232,10 +233,9 @@ one without a clear warning that the machine would then back up nowhere.
   *is* the configuration and also holds the local copy of the mirror. Warn
   clearly, then (on an explicit yes) delete `~/.claude/memory-backup/`. The
   GitHub repo and its full history are **not** touched: only this machine's
-  clone. Re-add later with `setup`, which re-clones. If object storage is
-  configured via `obstore.json` inside that directory, note that removing the
-  clone also drops the object-storage config; offer to keep a copy of
-  `obstore.json` first.
+  clone. Re-add later with `setup`, which re-clones. The object-storage config
+  lives at `~/.claude/memory-backup-obstore.json`, outside this directory, so
+  removing the GitHub target never touches it.
 
 After removing, report what remains configured (or that the machine now backs
 up nowhere), and remind that a scheduled job, if any, still runs until
@@ -248,7 +248,7 @@ scheduled job. If unconfigured and running headlessly (no user to ask), log the 
 and exit cleanly instead of starting setup.
 
 **Run every configured target.** Both a GitHub clone and an
-`obstore.json` may exist; run each that does (order does not matter, they write
+`obstore.json` config may exist; run each that does (order does not matter, they write
 disjoint destinations), and report per target. The GitHub run is steps 1-7
 below; the object-storage run follows in its own subsection.
 
@@ -314,7 +314,7 @@ below; the object-storage run follows in its own subsection.
 
 ### Object-storage target
 
-Runs when `~/.claude/memory-backup/obstore.json` exists. It reuses the exact
+Runs when `~/.claude/memory-backup-obstore.json` exists. It reuses the exact
 same tree build and secret scan as the GitHub run; only the destination
 differs.
 
@@ -351,7 +351,7 @@ Read-only. Report which target(s) are configured and, for each:
   origin remote and its current visibility, the timestamp of the last landed
   backup (last commit on main), and how many stores and handoff notes the last
   manifest recorded.
-- **Object storage**: if `~/.claude/memory-backup/obstore.json` exists, the
+- **Object storage**: if `~/.claude/memory-backup-obstore.json` exists, the
   bucket, prefix, and endpoint, and a live privacy check on the bucket (the
   same anonymous-access probe the sync uses) so a bucket silently flipped
   public is caught here, not just at push time.

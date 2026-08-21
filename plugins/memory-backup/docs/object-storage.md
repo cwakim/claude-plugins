@@ -24,13 +24,21 @@ mutable. A machine may back up to git, to object storage, or to both.
 
 There is no staging clone for this target, so the clone-with-an-origin-remote
 convention that *is* the git config does not apply. Instead a small JSON config
-records the destination:
+records the destination, deliberately kept **outside** the GitHub staging
+clone so the two targets share no files and removing one never touches the
+other's config:
 
 ```text
-~/.claude/memory-backup/obstore.json
+~/.claude/memory-backup-obstore.json
   { "bucket": "...", "prefix": "...", "endpoint": "...", "region": "...",
     "profile": "..." }
 ```
+
+**Breaking change in 1.2.1**: this path used to be
+`~/.claude/memory-backup/obstore.json`, inside the GitHub staging clone. A
+machine configured under an earlier version needs its config moved to the
+new path by hand, or `/backup setup` run again to re-point it; the old file
+is no longer read automatically.
 
 - **bucket** / **prefix**: the tree is mirrored to
   `s3://<bucket>/<prefix>/machines/<hostname>/...`. An empty prefix puts
@@ -162,7 +170,7 @@ prefix, then runs `scripts/obstore-setup.sh`, the mechanical core:
   writing no config. This is why PAB being unsupported is not fatal: the
   empirical probe, not any one provider's API, is the real guarantee.
 
-Only on exit 0 does the command write `~/.claude/memory-backup/obstore.json`.
+Only on exit 0 does the command write `~/.claude/memory-backup-obstore.json`.
 Setup is covered by `tests/obstore/` (create+harden+certify, and refusal of a
 public bucket).
 
@@ -183,11 +191,8 @@ a public bucket (it never passes `--allow-public`).
 There is no separate reconfigure command: **`setup` does it all.** Run `setup`
 again to add the other target, re-point an existing one (a different repo or
 bucket), or remove one. `status` lists what is configured. Removing a target
-deletes only local wiring (`obstore.json`, or the staging clone) and never the
-remote repo, the bucket, or their contents. See `commands/backup.md` (Setup, and
-Remove a target).
-
-One coupling to know: `obstore.json` lives inside the staging-clone directory
-(`~/.claude/memory-backup/`), so removing the GitHub target (deleting that
-directory) also drops the object-storage config; the remove flow warns and
-offers to keep a copy first.
+deletes only that target's local wiring (`obstore.json`, or the staging clone)
+and never the remote repo, the bucket, or their contents; because the config
+file lives outside the staging clone, removing either target leaves the
+other's wiring untouched. See `commands/backup.md` (Setup, and Remove a
+target).
