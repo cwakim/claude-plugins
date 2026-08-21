@@ -42,7 +42,7 @@ merge wants **every** machine's subtree, not just this host's:
 - **No `<path>`**: a configured backup target; both kinds may exist.
   - **GitHub mirror** (`~/.claude/memory-backup/` clone): `git pull
     --ff-only` first so it is current. The source root is the clone.
-  - **Object storage** (`~/.claude/memory-backup/obstore.json`): materialize
+  - **Object storage** (`~/.claude/memory-backup-obstore.json`): materialize
     it into a fresh temp directory with
     `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-pull.sh --dest <tmp> --bucket ...`
     reading bucket/prefix/endpoint/region/profile from the config. Pass **no**

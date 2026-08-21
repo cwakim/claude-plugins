@@ -37,7 +37,7 @@ reconciles two machines' divergent state.
     for the backup repo (`owner/name`), verify it exists, and clone it into
     place first. Otherwise `git pull --ff-only` so the mirror is current. The
     source root is the clone.
-  - **Object storage** (`~/.claude/memory-backup/obstore.json` exists). Read
+  - **Object storage** (`~/.claude/memory-backup-obstore.json` exists). Read
     bucket/prefix/endpoint/region/profile from it and materialize the mirror
     into a fresh temp directory (`mktemp -d`) with
     `${CLAUDE_PLUGIN_ROOT}/scripts/obstore-pull.sh --dest <tmp> --bucket ...`.
