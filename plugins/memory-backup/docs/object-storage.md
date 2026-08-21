@@ -34,6 +34,12 @@ other's config:
     "profile": "..." }
 ```
 
+**Breaking change in 1.2.1**: this path used to be
+`~/.claude/memory-backup/obstore.json`, inside the GitHub staging clone. A
+machine configured under an earlier version needs its config moved to the
+new path by hand, or `/backup setup` run again to re-point it; the old file
+is no longer read automatically.
+
 - **bucket** / **prefix**: the tree is mirrored to
   `s3://<bucket>/<prefix>/machines/<hostname>/...`. An empty prefix puts
   `machines/` at the bucket root. The per-hostname namespacing is unchanged, so

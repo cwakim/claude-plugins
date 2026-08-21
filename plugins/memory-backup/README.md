@@ -394,3 +394,10 @@ Requires the GitHub CLI (`gh`), authenticated.
   config). The clone holds nothing but this plugin's own backup commits, so
   signing adds no value, and a headless run has no TTY to satisfy a GPG
   passphrase prompt.
+- **Breaking change in 1.2.1**: the object-storage config moved from
+  `~/.claude/memory-backup/obstore.json` to
+  `~/.claude/memory-backup-obstore.json`, so it no longer lives inside (and
+  gets deleted along with) the GitHub staging clone. If you configured
+  object storage under an earlier version, the bucket and its contents are
+  untouched, but the old config file is no longer read; move it to the new
+  path, or just run `/backup setup` again to re-point it.
