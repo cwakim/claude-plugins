@@ -1,5 +1,5 @@
 ---
-description: Copy memory stores, handoff notes, plans, and config from a backup (the GitHub mirror, an object-storage bucket, or a zip) back onto this machine. Diff-aware and conservative - empty targets restore wholesale, conflicts are asked, nothing local is ever deleted. --dry-run reports the plan and stops.
+description: Copy memory stores, handoff notes, plans, and config from a backup (the GitHub mirror, an object-storage bucket, a zip, or a share gist) back onto this machine. Diff-aware and conservative - empty targets restore wholesale, conflicts are asked, nothing local is ever deleted. --dry-run reports the plan and stops.
 ---
 
 # Restore (`restore [--dry-run] [path]`)
@@ -30,6 +30,16 @@ reconciles two machines' divergent state.
   least one `machines/<hostname>/` subtree; if not, say so and stop. No
   GitHub involved at all: no clone, no `gh`, no network, and no need for
   `/backup setup` to have ever run.
+- **`<path>` is a gist URL** (`https://gist.github.com/...`): a share
+  bundle made by `share` (`${CLAUDE_PLUGIN_ROOT}/commands/share.md`).
+  Fetch it with `gh gist view <id> --raw` (or `--files`), read the
+  `bundle.zip.base64` file, base64-decode it to a temp `.zip`, extract
+  that into a fresh temp directory (`mktemp -d`), and use it as the source
+  root exactly like a local zip. Requires `gh` authenticated; no
+  `/backup setup` needed. The gist's `ONBOARDING.md` is context for a
+  human, not part of the restore; mention it in the report so the user
+  reads it. A share bundle carries no `config/` and only the thread's
+  curated stores, so the plan will naturally be narrow; that is expected.
 - **No `<path>`**: a configured backup target. Two kinds can be configured,
   and both may be at once (see `docs/object-storage.md`):
   - **GitHub mirror** (`~/.claude/memory-backup/` is a clone with an origin).
@@ -80,7 +90,8 @@ came from git, a zip, or an object-storage bucket.
    short per-file diff description (which side is newer, what changed).
    **With `--dry-run`, this plan is the result: report it and stop.**
    Apply nothing, ask nothing, and clean up any temp source directory this
-   run created (a zip extraction, or an object-storage pull). Otherwise
+   run created (a zip extraction, a decoded gist bundle, or an
+   object-storage pull). Otherwise
    resolve the conflicts via
    `AskUserQuestion`, batched (multi-select "take the backup version for
    these", keep local for the rest), never one prompt per file, then
@@ -96,11 +107,13 @@ came from git, a zip, or an object-storage bucket.
    the real value from the live source or the credential's issuer, not from
    the backup. If the source root's `manifest.json` records `"scanned":
    false` (a zip made with scanning skipped), say so plainly in the report:
-   these files were never checked, backup or not. Remove any temp source
-   directory this run created (a `.zip` extraction, or an object-storage
-   pull) now that the restore is done, and equally on an early stop (an
-   invalid source, or the user aborting); a `<path>` that was already a
-   directory is left untouched, since this run did not create it.
+   these files were never checked, backup or not. A share bundle's
+   `manifest.json` records `"share": true`; its `ONBOARDING.md` is worth a
+   pointer in the report. Remove any temp source directory this run created
+   (a `.zip` extraction, a decoded gist bundle, or an object-storage pull)
+   now that the restore is done, and equally on an early stop (an invalid
+   source, or the user aborting); a `<path>` that was already a directory
+   is left untouched, since this run did not create it.
 
 ## Manual fallback
 

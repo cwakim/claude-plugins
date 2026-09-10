@@ -82,6 +82,15 @@ redactions and omitted files from the secret scan, and `"scanned":
 true`/`false` (a GitHub backup always scans; a zip records the per-run
 choice).
 
+A **share bundle** (`share`, see `commands/share.md`) uses the same tree
+but a curated subset of one thread: only the in-scope memory stores
+(`project` and `reference` memories, with `user`/`feedback` held back and
+each `MEMORY.md` rebuilt to match), only the anchor handoff note with a
+one-line index, only the picked plans, no `config/`, plus a generated
+`ONBOARDING.md`. Its `manifest.json` adds `"share": true`, `"thread"`,
+`"scope"` (what was included), and `"excluded"` (what was held back), and
+`"scanned"` is always `true`.
+
 ## Invariants
 
 - **The repo tip always mirrors the machine.** Deletions propagate in every

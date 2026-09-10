@@ -6,10 +6,10 @@ archived), the plans directory, and the hand-written global config
 (`~/.claude/CLAUDE.md` and friends) into a staging clone and pushes it to a
 **private** GitHub repo, landing each run as a pull request that is
 squash-merged immediately. Set it up once, then run it by hand or from a
-weekly cron. Restore, zip export, and cross-machine merge are sibling
-commands: `/backup restore ...`, `/backup zip ...`, and `/backup merge ...`
-all still work, dispatching to `/memory-backup:restore`, `:zip`, and
-`:merge` respectively.
+weekly cron. Restore, zip export, cross-machine merge, and thread sharing
+are sibling commands: `/backup restore ...`, `/backup zip ...`, `/backup
+merge ...`, and `/backup share ...` all still work, dispatching to
+`/memory-backup:restore`, `:zip`, `:merge`, and `:share` respectively.
 
 ## Why
 
@@ -75,6 +75,7 @@ exactly what leaves the machine.
 /backup restore       # copy back from the repo: fill what is empty, ask on conflicts
 /backup restore <path> # same, but from a zip (or its extracted folder) instead of GitHub
 /backup merge         # converge with another machine's mirror (see Merge below)
+/backup share <thread> # hand one thread of work to someone without repo access (see Share below)
 ```
 
 ### Automated (opt-in)
@@ -241,15 +242,18 @@ invariants (history is the archive; never force-push).
 ```text
 /backup restore                    # from the configured GitHub mirror
 /backup restore <path>             # from a zip made by `zip <path>`, or its extracted folder
+/backup restore <gist-url>         # from a share bundle (see Share above)
 /backup restore --dry-run [path]   # plan only: show what a restore would do, touch nothing
 ```
 
 With no `<path>`, on a fresh machine it clones the backup repo (asking for
 `owner/name`); with a `<path>`, it reads that zip or folder directly, no
-GitHub, no `gh`, no network. Either way, if the hostname is new (a
-replacement machine, or a zip made on a different laptop) it asks which
-machine's mirror to restore from, then compares mirror and live targets and
-builds one plan, identically regardless of source:
+GitHub, no `gh`, no network; with a `gist.github.com` URL, it fetches a
+share bundle, decodes it, and treats it as a zip source (`gh` required).
+Whichever source resolves, if the hostname is new (a replacement machine,
+or a zip made on a different laptop) it asks which machine's mirror to
+restore from, then compares mirror and live targets and builds one plan,
+identically regardless of source:
 
 - A store or handoff target that is **missing or empty** is restored
   wholesale, with no per-file questions.
@@ -328,6 +332,56 @@ Merge is **interactive-only**, like zip: divergence is a judgment call, so
 there is no cron mode and no default-resolution flag. Invoked with nobody
 to ask, it logs the problem and exits cleanly.
 
+## Share
+
+```text
+/backup share <thread>    # curated handoff bundle for one thread, as a gist or a zip
+```
+
+For handing a piece of work to someone you do **not** want to add to your
+backup repo: a colleague picking up a thread while you are on vacation, or
+onboarding onto a project. Where `zip` mirrors everything for your own
+disaster recovery, `share` is curated and sanitized, scoped to one thread.
+
+`<thread>` is matched against `~/.claude/handoff-index.md` (the same way
+`/pickup` matches), and that handoff note becomes the anchor. From it,
+`share` gathers:
+
+- **the anchor handoff note** and a one-line index for it;
+- **the memory store of the repo the note lives in**, plus any other
+  repo's store the note names (asked, not assumed). Within each store only
+  **`project` and `reference`** memories go in; your **`user` and
+  `feedback`** memories are held back and listed in one prompt so you can
+  add any back. Each `MEMORY.md` is rebuilt to match what shipped.
+- **the plans you pick** from `~/.claude/plans/` (handoff notes do not
+  link plans reliably, so this is always asked);
+- **a generated `ONBOARDING.md`**: goal, where the thread stands, the next
+  step, which repos to clone, and the one command to ingest the bundle.
+
+Global config (`CLAUDE.md`, `settings.json`, commands, agents) is **never**
+in a share bundle. Every file is **secret-scanned every run**, with no
+skip option: a share bundle is built to leave the machine and reach
+another person, so it always gets the full interactive scan.
+
+Delivery is a **secret gist** (the bundle zipped and base64-encoded
+alongside a plaintext `ONBOARDING.md`, so the recipient can read the page
+in the browser before downloading) or a **zip** at a path you name. A
+secret gist is unlisted but not access-controlled: anyone with the link
+can read it, so revoke it with `gh gist delete <id>` once the recipient is
+done.
+
+The recipient needs the plugin and `gh`. They run `/backup merge
+<gist-url-or-zip>` (or `restore` on a machine with no memory of their
+own); `restore` and `merge` both accept a `gist.github.com` URL directly,
+fetch it, decode the bundle, and treat it as a zip source. Nothing new to
+install on their side.
+
+Share is **interactive-only**: which thread, which repos, which plans,
+which held-back memories, where it lands are all judgment calls. No cron,
+no headless mode. Share never writes to your stores, never touches the
+staging clone or any backup target, and never pushes: the only writes are
+the temp bundle and, for a zip, the path you give.
+
 ## Safety guarantees
 
 - The repo's visibility is verified before **every** push, not just at setup;
@@ -372,7 +426,8 @@ to ask, it logs the problem and exits cleanly.
   `/backup setup` (no separate reconfigure command).
 - **v4 Google Drive**: likely via rclone. Not started.
 
-`merge` (the planned v2) shipped in 1.0.0; see Merge above.
+`merge` (the planned v2) shipped in 1.0.0 and `share` in 1.3.0; see Merge
+and Share above.
 
 ## Install
 
