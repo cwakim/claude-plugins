@@ -39,6 +39,15 @@ merge wants **every** machine's subtree, not just this host's:
   (`mktemp -d`); a directory is used directly. Verify the source root
   contains at least one `machines/<hostname>/` subtree; if not, say so and
   stop. No GitHub, no `gh`, no network.
+- **`<path>` is a gist URL** (`https://gist.github.com/...`): a share
+  bundle from `share` (`${CLAUDE_PLUGIN_ROOT}/commands/share.md`), the
+  common way a colleague receives a thread. Resolve it exactly as
+  `restore` does (`gh gist view` the `bundle.zip.base64` file,
+  base64-decode, extract into a fresh temp directory), then treat that
+  directory as the source root like any extracted zip. Requires `gh`
+  authenticated. A share bundle holds one machine's curated subtree, so
+  the single-source path below applies; point the user at its
+  `ONBOARDING.md` in the report.
 - **No `<path>`**: a configured backup target; both kinds may exist.
   - **GitHub mirror** (`~/.claude/memory-backup/` clone): `git pull
     --ff-only` first so it is current. The source root is the clone.
@@ -54,9 +63,9 @@ merge wants **every** machine's subtree, not just this host's:
   If nothing is configured, say so and stop: merge presumes an established
   mirror (for disaster recovery onto a fresh machine, use `restore`).
 
-Clean up any temp source directory this run created (a zip extraction or an
-object-storage pull) when the run ends, including early stops (an invalid
-source, or the user aborting).
+Clean up any temp source directory this run created (a zip extraction, a
+decoded gist bundle, or an object-storage pull) when the run ends,
+including early stops (an invalid source, or the user aborting).
 
 ## Steps
 
