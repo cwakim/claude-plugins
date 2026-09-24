@@ -170,6 +170,7 @@ machines/<hostname>/
     CLAUDE.md                            # global instructions + @-referenced files
     settings.json                        # hooks, plugins, marketplaces
     ...                                  # keybindings.json, commands/, skills/, agents/
+                                          # (skills/synced/ excluded, see below)
 ```
 
 Both trees strip the home prefix, so names stay short, the repo is browsable
@@ -184,8 +185,12 @@ are collected separately on purpose: archiving removes a note from the index,
 so an index-driven copy alone would silently miss them.
 
 Deliberately excluded: `~/.claude.json` (holds OAuth tokens; never pushed,
-even to a private repo), transcripts, history, caches, and installed plugins
-(reinstallable; `settings.json` records which were enabled).
+even to a private repo), transcripts, history, caches, installed plugins
+(reinstallable; `settings.json` records which were enabled), and
+`~/.claude/skills/synced/` (vendored skill files installed by plugins:
+reinstallable the same way, and their XML namespace fragments and SRI
+hashes read as credential-shaped strings and flood the secret scan with
+false positives).
 
 The staging clone lives at `~/.claude/memory-backup/`; that clone existing
 with an origin remote *is* the configuration. Deleting it deconfigures the
