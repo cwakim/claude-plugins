@@ -247,6 +247,17 @@ Runs unattended once configured: no questions, so it works headlessly from a
 scheduled job. If unconfigured and running headlessly (no user to ask), log the problem
 and exit cleanly instead of starting setup.
 
+**"Headless" means no live terminal**: a `claude -p` invocation, scheduled
+or run by hand, decided once, up front, by how this run was invoked. It is
+never decided by whether `AskUserQuestion` happens to be callable. If
+`AskUserQuestion` is unavailable in an environment that is headless by that
+test, that is not license to fall back to asking in plain text: it changes
+nothing about the branch below. Proceed exactly as a headless run always
+does, redact and continue, and say in the report that `AskUserQuestion` was
+unavailable, the same way any other headless finding is reported. A
+headless run never stops mid-run waiting on a reply of any kind, text
+included.
+
 **Run every configured target.** Both a GitHub clone and an
 `obstore.json` config may exist; run each that does (order does not matter, they write
 disjoint destinations), and report per target. The GitHub run is steps 1-7
@@ -281,17 +292,25 @@ below; the object-storage run follows in its own subsection.
      `config/`. `settings.json` gets no special credential handling here:
      like every other mirrored file, it goes through the secret scan in the
      next step. The exclusions in `docs/layout.md` (`~/.claude.json`,
-     transcripts, history, caches, `plugins/`) are absolute;
+     transcripts, history, caches, `plugins/`, `skills/synced/`) are
+     absolute: `skills/synced/` never enters `config/` even though
+     `skills/` itself does;
    - **deletions propagate in every tree.** The `handoffs/` and `config/`
      trees are file-by-file copies, so after copying, remove any mirrored
      file whose source no longer exists (the memory and plan trees already
      get this from `rsync --delete`). The invariant: **the repo tip always
      mirrors the machine.** Without this, restore would resurrect
-     deliberately deleted handoffs and config files.
+     deliberately deleted handoffs and config files. This also covers a
+     mirror carried over from before the `skills/synced/` exclusion: if
+     `config/skills/synced/` is still present in the staging tree, remove it
+     on this run even though `~/.claude/skills/synced/` is still on disk: it
+     is excluded by policy now, not deleted, but the mirror drops it the
+     same way;
 4. **Scan every mirrored text file for secrets** before anything is
    committed, exactly as specified in `docs/secret-scan.md`: interactive
    runs ask per finding (include / omit / redact, batched), headless runs
-   redact automatically and warn loudly; either way the file is backed up
+   redact automatically, commit, and warn loudly (never ask, in
+   `AskUserQuestion` or in text); either way the file is backed up
    and the credential never leaves the machine.
 5. Write `manifest.json` per `docs/layout.md` (with `"scanned": true`).
    If `git status --porcelain` then shows no changes beyond the manifest's

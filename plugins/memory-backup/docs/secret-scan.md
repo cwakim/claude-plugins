@@ -42,6 +42,15 @@ file**, then warn loudly, in the run report, the PR body, and the cron log,
 naming each file and the reason, so the next interactive look can clean the
 source or allowlist a false positive.
 
+**"Never ask" means never, not "never via `AskUserQuestion`."** A run is
+headless because of how it was invoked (`claude -p`, no TTY), not because of
+which tools happen to be available. If `AskUserQuestion` is unavailable in
+that environment, that is not a decision point to fall back on: it changes
+nothing, redact, commit, and warn exactly as above. Do not stop the run to
+ask a question in plain text; a headless run has nobody there to read it.
+Note the tool's unavailability in the warning alongside the finding, the
+same as any other headless-run detail.
+
 ## Redaction
 
 Redaction replaces only the matched value, and only in the mirrored copy

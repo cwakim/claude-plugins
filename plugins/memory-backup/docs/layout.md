@@ -68,11 +68,16 @@ every archived handoff (`~/.claude/handoff-archive/`, and any
 `handoff-archive/` folder beside a live note); and from `~/.claude/`:
 `CLAUDE.md` plus any file it `@`-references beside it, `settings.json`,
 `keybindings.json`, and the `commands/`, `skills/`, and `agents/`
-directories if non-empty.
+directories if non-empty, except `skills/synced/` (see below).
 
 **Never** mirrored: `~/.claude.json` (it holds OAuth tokens), transcripts,
-history, caches, or the `plugins/` directory (reinstallable, and
-`settings.json` records which plugins were enabled).
+history, caches, the `plugins/` directory (reinstallable, and
+`settings.json` records which plugins were enabled), or
+`~/.claude/skills/synced/` (vendored skill files installed by plugins,
+reinstallable the same way, and large: 206 files on one machine, whose XML
+namespace declarations and SRI hashes read as credential-shaped strings and
+flood the secret scan with false positives on every run, for content that
+carries nothing of the user's own).
 
 ## The manifest
 
@@ -96,7 +101,11 @@ one-line index, only the picked plans, no `config/`, plus a generated
 - **The repo tip always mirrors the machine.** Deletions propagate in every
   tree: a file deleted locally disappears from the tip on the next backup,
   visibly in the PR diff, and git history remains the archive it can be
-  recovered from.
+  recovered from. This covers exclusions too, not just deletions: a mirrored
+  `config/skills/synced/` from before this exclusion existed must be removed
+  on the next run exactly as if its source had vanished, even though
+  `~/.claude/skills/synced/` itself is still on disk: it is policy that
+  dropped it, not the file.
 - **Sources are read-only.** A backup or zip run never writes to a memory
   store, handoff note, plan, or config file. Only `restore` and `merge`
   write to live paths, and only interactively, plan-confirmed.
